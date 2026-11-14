@@ -334,9 +334,18 @@
                 <div class="flex items-center justify-between">
                     <span class="font-bold text-slate-300">Match Half Length</span>
                     <select id="setting-duration" onchange="SETTINGS.halfMinutes = parseInt(this.value)" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 font-black text-white">
+                        <option value="1">1 Min</option>
                         <option value="2">2 Mins</option>
                         <option value="3" selected>3 Mins</option>
                         <option value="5">5 Mins</option>
+                    </select>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-slate-300">Camera Angle</span>
+                    <select id="setting-camera" onchange="setCameraMode(this.value)" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 font-black text-white">
+                        <option value="TELEVISION" selected>📺 Television</option>
+                        <option value="SIDELINE">🏟️ Sideline</option>
+                        <option value="TOP_DOWN">🛰️ Top Down</option>
                     </select>
                 </div>
                 <div class="flex items-center justify-between">
@@ -511,6 +520,24 @@
 
             <!-- Detailed Match Stats Comparison Bars -->
             <div id="stats-comparison-rows" class="space-y-2.5 bg-slate-900/90 p-4 rounded-2xl border border-slate-800 text-xs">
+            </div>
+
+            <!-- In-Game Camera Angle Selector (Sideline / Top Down / Television) -->
+            <div class="bg-slate-900/95 p-3 rounded-2xl border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-black uppercase tracking-wider text-emerald-400">🎥 CAMERA VIEW</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 w-full sm:w-auto">
+                    <button id="pause-cam-SIDELINE" onclick="setCameraMode('SIDELINE')" class="btn-arcade px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 font-black uppercase text-[11px] border border-slate-700">
+                        🏟️ Sideline
+                    </button>
+                    <button id="pause-cam-TOP_DOWN" onclick="setCameraMode('TOP_DOWN')" class="btn-arcade px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 font-black uppercase text-[11px] border border-slate-700">
+                        🛰️ Top Down
+                    </button>
+                    <button id="pause-cam-TELEVISION" onclick="setCameraMode('TELEVISION')" class="btn-arcade px-3.5 py-2 rounded-xl bg-emerald-500 text-slate-950 font-black uppercase text-[11px] border border-emerald-400">
+                        📺 Television
+                    </button>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
@@ -3369,12 +3396,68 @@ function updateSimulation(dt) {
     rightGoalNet.update(dt);
     recordReplayFrame(MATCH.state === 'GOAL_CELEBRATION');
 
-    const targetX = BALL.x * 0.62;
-    const targetZ = BALL.z * 0.35;
-    camera.position.x += (targetX - camera.position.x) * Math.min(1, dt * 5.5);
-    camera.position.y += (34 - camera.position.y) * Math.min(1, dt * 5.5);
-    camera.position.z += (targetZ + 46 - camera.position.z) * Math.min(1, dt * 5.5);
-    camera.lookAt(camera.position.x * 0.85, 0, targetZ - 2);
+    applyGameplayCamera(dt, false);
+}
+
+function applyGameplayCamera(dt, snapImmediate) {
+    const mode = SETTINGS.cameraMode || 'TELEVISION';
+    let desiredX, desiredY, desiredZ, lookX, lookY, lookZ;
+
+    if (mode === 'SIDELINE') {
+        // Low touchline pitch-side view with close perspective of players and stadium stands
+        desiredX = BALL.x * 0.78;
+        desiredY = 13.5;
+        desiredZ = BALL.z * 0.30 + 31.5;
+        lookX = BALL.x * 0.88;
+        lookY = 1.2;
+        lookZ = BALL.z * 0.45 - 4.5;
+    } else if (mode === 'TOP_DOWN') {
+        // High overhead tactical bird's-eye view straight down over the pitch
+        desiredX = BALL.x * 0.48;
+        desiredY = 66.0;
+        desiredZ = BALL.z * 0.25 + 4.0;
+        lookX = desiredX;
+        lookY = 0;
+        lookZ = BALL.z * 0.25;
+    } else {
+        // TELEVISION: Classic elevated broadcast gantry view
+        desiredX = BALL.x * 0.62;
+        desiredY = 34.0;
+        desiredZ = BALL.z * 0.35 + 46.0;
+        lookX = desiredX * 0.85;
+        lookY = 0;
+        lookZ = BALL.z * 0.35 - 2.0;
+    }
+
+    if (snapImmediate) {
+        camera.position.set(desiredX, desiredY, desiredZ);
+    } else {
+        const lerp = Math.min(1, dt * 5.5);
+        camera.position.x += (desiredX - camera.position.x) * lerp;
+        camera.position.y += (desiredY - camera.position.y) * lerp;
+        camera.position.z += (desiredZ - camera.position.z) * lerp;
+    }
+    camera.lookAt(lookX, lookY, lookZ);
+}
+
+function setCameraMode(mode) {
+    SETTINGS.cameraMode = mode;
+    const sel = document.getElementById('setting-camera');
+    if (sel && sel.value !== mode) sel.value = mode;
+
+    ['SIDELINE', 'TOP_DOWN', 'TELEVISION'].forEach(m => {
+        const btn = document.getElementById(`pause-cam-${m}`);
+        if (!btn) return;
+        if (m === mode) {
+            btn.className = 'btn-arcade px-3.5 py-2 rounded-xl bg-emerald-500 text-slate-950 font-black uppercase text-[11px] border border-emerald-400';
+        } else {
+            btn.className = 'btn-arcade px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 font-black uppercase text-[11px] border border-slate-700';
+        }
+    });
+
+    if (MATCH.state !== 'GOAL_REPLAY') {
+        applyGameplayCamera(0.016, true);
+    }
 }
 
 function updateGoalkeeperAI(gk, dt) {
@@ -4235,10 +4318,12 @@ function startKickOffMatch(mode) {
     spawnMatchSquads();
     updateScorebugUI();
     resetPositionsForKickoff(0);
+    setCameraMode(SETTINGS.cameraMode || 'TELEVISION');
     MATCH.state = 'PLAYING';
 }
 
 function populateMatchReportModal(titleText) {
+    setCameraMode(SETTINGS.cameraMode || 'TELEVISION');
     const t0 = TEAMS[selectedTeams[0]];
     const t1 = TEAMS[selectedTeams[1]];
     document.getElementById('pause-title').textContent = titleText;
