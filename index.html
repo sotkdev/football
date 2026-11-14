@@ -3401,43 +3401,45 @@ function updateSimulation(dt) {
 
 function applyGameplayCamera(dt, snapImmediate) {
     const mode = SETTINGS.cameraMode || 'TELEVISION';
-    let desiredX, desiredY, desiredZ, lookX, lookY, lookZ;
+    let desiredX, desiredY, desiredZ;
 
     if (mode === 'SIDELINE') {
-        // Low touchline pitch-side view with close perspective of players and stadium stands
-        desiredX = BALL.x * 0.78;
-        desiredY = 13.5;
-        desiredZ = BALL.z * 0.30 + 31.5;
-        lookX = BALL.x * 0.88;
-        lookY = 1.2;
-        lookZ = BALL.z * 0.45 - 4.5;
+        // Zoomed-out touchline pitch-side view with wide framing of players, touchline, and stadium stands
+        desiredX = BALL.x * 0.68;
+        desiredY = 21.5;
+        desiredZ = BALL.z * 0.32 + 41.5;
     } else if (mode === 'TOP_DOWN') {
-        // High overhead tactical bird's-eye view straight down over the pitch
-        desiredX = BALL.x * 0.48;
-        desiredY = 66.0;
-        desiredZ = BALL.z * 0.25 + 4.0;
-        lookX = desiredX;
-        lookY = 0;
-        lookZ = BALL.z * 0.25;
+        // Sensible Soccer style high overhead scrolling view (strictly 2D panning, zero camera rotation)
+        desiredX = Math.max(-26, Math.min(26, BALL.x * 0.65));
+        desiredY = 62.0;
+        desiredZ = Math.max(-10, Math.min(10, BALL.z * 0.45)) + 16.0;
     } else {
         // TELEVISION: Classic elevated broadcast gantry view
         desiredX = BALL.x * 0.62;
         desiredY = 34.0;
         desiredZ = BALL.z * 0.35 + 46.0;
-        lookX = desiredX * 0.85;
-        lookY = 0;
-        lookZ = BALL.z * 0.35 - 2.0;
     }
 
     if (snapImmediate) {
         camera.position.set(desiredX, desiredY, desiredZ);
     } else {
-        const lerp = Math.min(1, dt * 5.5);
+        const lerp = Math.min(1, dt * 6.0);
         camera.position.x += (desiredX - camera.position.x) * lerp;
         camera.position.y += (desiredY - camera.position.y) * lerp;
         camera.position.z += (desiredZ - camera.position.z) * lerp;
     }
-    camera.lookAt(lookX, lookY, lookZ);
+
+    if (mode === 'TOP_DOWN') {
+        // Lock lookAt strictly relative to current camera.position so the camera NEVER rotates or twists
+        camera.up.set(0, 1, 0);
+        camera.lookAt(camera.position.x, 0, camera.position.z - 16.0);
+    } else if (mode === 'SIDELINE') {
+        camera.up.set(0, 1, 0);
+        camera.lookAt(camera.position.x * 0.92, 0.8, camera.position.z - 43.5);
+    } else {
+        camera.up.set(0, 1, 0);
+        camera.lookAt(camera.position.x * 0.85, 0, camera.position.z - 48.0);
+    }
 }
 
 function setCameraMode(mode) {
