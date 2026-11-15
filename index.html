@@ -5361,27 +5361,24 @@ function switchTournamentTab(tab) {
     TOURNAMENT.activeTab = tab;
     const gView = document.getElementById('tourney-groups-view');
     const kView = document.getElementById('tourney-knockout-view');
-    const gBtn = document.getElementById('tab-tourney-groups');
-    const kBtn = document.getElementById('tab-tourney-knockout');
+    const gBtn = document.getElementById('tourney-tab-groups');
+    const kBtn = document.getElementById('tourney-tab-knockout');
 
     if (tab === 'GROUPS') {
-        gView.classList.remove('hidden');
-        kView.classList.add('hidden');
-        gBtn.className = 'px-4 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider bg-emerald-400 text-slate-950 transition';
-        kBtn.className = 'px-4 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider bg-slate-800 text-slate-300 hover:text-white transition';
+        if (gView) gView.classList.remove('hidden');
+        if (kView) kView.classList.add('hidden');
+        if (gBtn) gBtn.className = 'btn-arcade px-3.5 py-2 rounded-xl bg-amber-400 text-slate-950 text-xs font-black uppercase';
+        if (kBtn) kBtn.className = 'btn-arcade px-3.5 py-2 rounded-xl bg-slate-800 text-slate-200 text-xs font-black uppercase border border-slate-700';
     } else {
-        gView.classList.add('hidden');
-        kView.classList.remove('hidden');
-        kBtn.className = 'px-4 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider bg-emerald-400 text-slate-950 transition';
-        gBtn.className = 'px-4 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider bg-slate-800 text-slate-300 hover:text-white transition';
+        if (gView) gView.classList.add('hidden');
+        if (kView) kView.classList.remove('hidden');
+        if (kBtn) kBtn.className = 'btn-arcade px-3.5 py-2 rounded-xl bg-amber-400 text-slate-950 text-xs font-black uppercase';
+        if (gBtn) gBtn.className = 'btn-arcade px-3.5 py-2 rounded-xl bg-slate-800 text-slate-200 text-xs font-black uppercase border border-slate-700';
     }
 }
 
 function renderTournamentHubUI() {
     const isEuro = TOURNAMENT.type === 'EURO';
-    document.getElementById('tourney-hub-badge').textContent = isEuro ? '🇪🇺 UEFA EUROPEAN CHAMPIONSHIP • 32 TEAMS' : '🏆 FIFA WORLD CUP • 32 TEAMS';
-    document.getElementById('tourney-hub-title').textContent = isEuro ? 'UEFA EURO CHAMPIONSHIP HUB' : 'WORLD CUP TOURNAMENT HUB';
-
     const stageLabels = {
         GROUP: `GROUP STAGE • MATCHDAY ${TOURNAMENT.matchday} OF 3`,
         R16: 'KNOCKOUT STAGE • ROUND OF 16',
@@ -5390,7 +5387,18 @@ function renderTournamentHubUI() {
         FINAL: 'KNOCKOUT STAGE • GRAND FINAL',
         COMPLETED: '🏆 TOURNAMENT COMPLETED'
     };
-    document.getElementById('tourney-hub-stage-sub').textContent = stageLabels[TOURNAMENT.stage] || '';
+    const stageText = stageLabels[TOURNAMENT.stage] || '';
+
+    const badgeEl = document.getElementById('tourney-badge');
+    if (badgeEl) {
+        badgeEl.textContent = isEuro
+            ? `🇪🇺 UEFA EUROPEAN CHAMPIONSHIP • 32 TEAMS • ${stageText}`
+            : `🏆 FIFA WORLD CUP • 32 TEAMS • ${stageText}`;
+    }
+    const titleEl = document.getElementById('tourney-title');
+    if (titleEl) {
+        titleEl.textContent = isEuro ? 'UEFA EURO STANDINGS & KNOCKOUTS' : 'WORLD CUP STANDINGS & KNOCKOUTS';
+    }
 
     switchTournamentTab(TOURNAMENT.activeTab);
 
@@ -5586,38 +5594,34 @@ function openModeTeamSelection(mode) {
     NAV_FLOW.mode = mode;
     NAV_FLOW.fromTournamentHub = false;
 
-    const grid = document.getElementById('team-select-cards-grid');
+    const grid = document.getElementById('team-cards-grid');
     const awayCard = document.getElementById('away-team-card');
-    const vsDivider = document.getElementById('team-select-vs-divider');
-    const homeLabel = document.getElementById('home-card-role-label');
+    const homeLabel = document.getElementById('home-squad-label');
     const titleEl = document.getElementById('team-select-title');
     const subEl = document.getElementById('team-select-subtitle');
-    const badgeEl = document.getElementById('team-select-mode-badge');
+    const hintEl = document.getElementById('team-select-hint');
 
     if (mode === 'AI') {
-        badgeEl.textContent = '🤖 PLAY VS AI • EXHIBITION MATCH';
-        titleEl.textContent = 'SELECT HOME & AWAY TEAMS';
-        subEl.textContent = 'Choose your squad and your AI opponent, then configure match settings';
-        homeLabel.textContent = 'PLAYER 1 (HOME)';
-        awayCard.classList.remove('hidden');
-        vsDivider.classList.remove('hidden');
-        grid.className = 'grid grid-cols-1 lg:grid-cols-11 gap-4 items-center';
+        if (subEl) subEl.textContent = '🤖 STEP 1 OF 2 • PLAY VS AI EXHIBITION';
+        if (titleEl) titleEl.textContent = 'SELECT HOME & AWAY TEAMS';
+        if (hintEl) hintEl.textContent = 'Choose your squad and your AI opponent, then configure match settings.';
+        if (homeLabel) homeLabel.textContent = 'PLAYER 1 (HOME • 90 NATIONS)';
+        if (awayCard) awayCard.classList.remove('hidden');
+        if (grid) grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-4 my-5';
     } else if (mode === 'WORLDCUP') {
-        badgeEl.textContent = '🏆 FIFA WORLD CUP • 32 NATIONS (8 GROUPS OF 4)';
-        titleEl.textContent = 'SELECT YOUR WORLD CUP NATION';
-        subEl.textContent = 'Your team will be drawn into 1 of 8 groups of 4 teams • Top 2 advance to Knockouts';
-        homeLabel.textContent = 'YOUR NATIONAL TEAM';
-        awayCard.classList.add('hidden');
-        vsDivider.classList.add('hidden');
-        grid.className = 'max-w-lg mx-auto w-full';
+        if (subEl) subEl.textContent = '🏆 STEP 1 OF 2 • FIFA WORLD CUP (8 GROUPS OF 4)';
+        if (titleEl) titleEl.textContent = 'SELECT YOUR WORLD CUP NATION';
+        if (hintEl) hintEl.textContent = 'Your team will be drawn into 1 of 8 groups of 4 teams • Top 2 advance to Knockouts.';
+        if (homeLabel) homeLabel.textContent = 'YOUR NATIONAL TEAM (ALL 90 NATIONS)';
+        if (awayCard) awayCard.classList.add('hidden');
+        if (grid) grid.className = 'max-w-lg mx-auto w-full my-5';
     } else if (mode === 'EURO') {
-        badgeEl.textContent = '🇪🇺 UEFA EURO • EUROPEAN NATIONS ONLY (8 GROUPS OF 4)';
-        titleEl.textContent = 'SELECT YOUR EUROPEAN NATION';
-        subEl.textContent = 'Restricted to European teams • Placed in 1 of 8 groups of 4 teams';
-        homeLabel.textContent = 'YOUR EUROPEAN TEAM';
-        awayCard.classList.add('hidden');
-        vsDivider.classList.add('hidden');
-        grid.className = 'max-w-lg mx-auto w-full';
+        if (subEl) subEl.textContent = '🇪🇺 STEP 1 OF 2 • UEFA EURO (EUROPEAN TEAMS ONLY)';
+        if (titleEl) titleEl.textContent = 'SELECT YOUR EUROPEAN NATION';
+        if (hintEl) hintEl.textContent = 'Restricted to European nations only • Drawn into 1 of 8 groups of 4 teams.';
+        if (homeLabel) homeLabel.textContent = 'YOUR EUROPEAN TEAM (UEFA NATIONS ONLY)';
+        if (awayCard) awayCard.classList.add('hidden');
+        if (grid) grid.className = 'max-w-lg mx-auto w-full my-5';
 
         // Ensure currently selected team is European
         if (!isEuropeanTeamIndex(selectedTeams[0])) {
@@ -5638,25 +5642,61 @@ function backToMainMenuFromTeamSelect() {
 
 function syncPreMatchSettingsControls() {
     const durEl = document.getElementById('prematch-duration');
-    if (durEl) durEl.value = String(SETTINGS.halfDurationMinutes || 2);
+    if (durEl) durEl.value = String(SETTINGS.halfDurationMinutes || 3);
     const pitchEl = document.getElementById('prematch-pitch');
     if (pitchEl) pitchEl.value = SETTINGS.pitchStyle || 'CLASSIC_STRIPES';
     const dayEl = document.getElementById('prematch-daytime');
-    if (dayEl) dayEl.value = SETTINGS.daytime || 'NIGHT';
+    if (dayEl) dayEl.value = SETTINGS.daytime || 'DAY';
     const camEl = document.getElementById('prematch-camera');
     if (camEl) camEl.value = SETTINGS.cameraMode || 'TELEVISION';
     const tacEl = document.getElementById('prematch-tactics');
-    if (tacEl) tacEl.value = MATCH.tactics[0] || 'BALANCED';
+    if (tacEl) tacEl.value = String(SETTINGS.tactics ? SETTINGS.tactics[0] : 1);
+
+    // Populate matchup preview banner
+    const banner = document.getElementById('prematch-matchup-banner');
+    if (banner) {
+        const t0 = TEAMS[selectedTeams[0]];
+        const t1 = TEAMS[selectedTeams[1]];
+        if (NAV_FLOW.mode === 'AI' || NAV_FLOW.fromTournamentHub) {
+            banner.innerHTML = `
+                <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-7 rounded overflow-hidden border border-white/20">${renderFlagSVG(t0, 40, 28)}</div>
+                    <div>
+                        <div class="text-[10px] font-black text-emerald-400 uppercase">HOME</div>
+                        <div class="text-sm font-black text-white uppercase">${t0.name} (${t0.ovr})</div>
+                    </div>
+                </div>
+                <div class="px-3 py-1 rounded-lg bg-slate-950 border border-slate-700 text-xs font-black text-amber-400">VS</div>
+                <div class="flex items-center gap-2.5 text-right">
+                    <div>
+                        <div class="text-[10px] font-black text-cyan-400 uppercase">AWAY</div>
+                        <div class="text-sm font-black text-white uppercase">${t1.name} (${t1.ovr})</div>
+                    </div>
+                    <div class="w-10 h-7 rounded overflow-hidden border border-white/20">${renderFlagSVG(t1, 40, 28)}</div>
+                </div>`;
+        } else {
+            const modeLabel = NAV_FLOW.mode === 'EURO' ? '🇪🇺 UEFA EURO ENTRY' : '🏆 FIFA WORLD CUP ENTRY';
+            banner.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-8 rounded overflow-hidden border border-white/20">${renderFlagSVG(t0, 48, 32)}</div>
+                    <div>
+                        <div class="text-[10px] font-black text-amber-400 uppercase">${modeLabel}</div>
+                        <div class="text-base font-black text-white uppercase">${t0.name} (OVR ${t0.ovr})</div>
+                    </div>
+                </div>
+                <div class="text-xs font-bold text-slate-400">8 Groups of 4 • Group Stage & Knockouts</div>`;
+        }
+    }
 }
 
 function proceedFromTeamSelectToMatchSettings() {
     NAV_FLOW.fromTournamentHub = false;
     syncPreMatchSettingsControls();
-    const btnText = document.getElementById('prematch-confirm-btn-text');
-    if (btnText) {
-        if (NAV_FLOW.mode === 'AI') btnText.textContent = '⚽ START KICK OFF MATCH ▶';
-        else if (NAV_FLOW.mode === 'WORLDCUP') btnText.textContent = '🏆 DRAW WORLD CUP GROUPS ▶';
-        else if (NAV_FLOW.mode === 'EURO') btnText.textContent = '🇪🇺 DRAW EURO GROUPS ▶';
+    const btn = document.getElementById('prematch-confirm-btn');
+    if (btn) {
+        if (NAV_FLOW.mode === 'AI') btn.textContent = '⚽ START KICK OFF MATCH ▶';
+        else if (NAV_FLOW.mode === 'WORLDCUP') btn.textContent = '🏆 DRAW WORLD CUP GROUPS ▶';
+        else if (NAV_FLOW.mode === 'EURO') btn.textContent = '🇪🇺 DRAW EURO GROUPS ▶';
     }
     document.getElementById('team-select-screen').classList.add('hidden');
     document.getElementById('prematch-settings-screen').classList.remove('hidden');
@@ -5665,8 +5705,8 @@ function proceedFromTeamSelectToMatchSettings() {
 function openPreMatchSettingsFromTournament() {
     NAV_FLOW.fromTournamentHub = true;
     syncPreMatchSettingsControls();
-    const btnText = document.getElementById('prematch-confirm-btn-text');
-    if (btnText) btnText.textContent = '✅ SAVE & RETURN TO TOURNAMENT ▶';
+    const btn = document.getElementById('prematch-confirm-btn');
+    if (btn) btn.textContent = '✅ SAVE & RETURN TO TOURNAMENT ▶';
     document.getElementById('tournament-hub-screen').classList.add('hidden');
     document.getElementById('prematch-settings-screen').classList.remove('hidden');
 }
@@ -5683,9 +5723,11 @@ function backFromPreMatchSettings() {
 function confirmPreMatchSettingsAndProceed() {
     const tacEl = document.getElementById('prematch-tactics');
     if (tacEl) {
-        MATCH.tactics[0] = tacEl.value;
-        const hudTac = document.getElementById('hud-tactic-badge');
-        if (hudTac) hudTac.textContent = `TACTIC: ${MATCH.tactics[0]}`;
+        const tacIdx = parseInt(tacEl.value);
+        if (!isNaN(tacIdx) && SETTINGS.tactics) {
+            SETTINGS.tactics[0] = tacIdx;
+            if (typeof updateTacticsUI === 'function') updateTacticsUI();
+        }
     }
 
     document.getElementById('prematch-settings-screen').classList.add('hidden');
