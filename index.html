@@ -2889,8 +2889,15 @@ window.addEventListener('keydown', e => {
 
     if (MATCH.state === 'PENALTY_SHOOTOUT') {
         if (PENALTY_STATE.phase === 'AIM') {
-            if (PENALTY_STATE.turnTeam === 0 && (isShootKey || isPassKey)) {
-                fireUserPenaltyKick();
+            if (PENALTY_STATE.turnTeam === 0) {
+                if ((isShootKey || isPassKey) && !CHARGE.active) {
+                    CHARGE.active = true;
+                    CHARGE.type = 'SHOOT';
+                    CHARGE.kicker = PENALTY_STATE.kicker;
+                    CHARGE.holdTime = 0;
+                    CHARGE.power = 0.16;
+                    CHARGE.displayPower = 0.16;
+                }
             } else if (PENALTY_STATE.turnTeam === 1) {
                 if (k === 'arrowleft' || code === 'ArrowLeft' || k === 'a') PENALTY_STATE.userGkDiveDir = -1;
                 else if (k === 'arrowright' || code === 'ArrowRight' || k === 'd') PENALTY_STATE.userGkDiveDir = 1;
@@ -2948,7 +2955,20 @@ window.addEventListener('keyup', e => {
     CODES[code] = false;
 
     const isShootKey = (k === 'd' || k === ' ' || k === 'k' || code === 'KeyD' || code === 'Space' || code === 'KeyK');
+    const isPassKey = (k === 's' || k === 'j' || k === 'enter' || code === 'KeyS' || code === 'KeyJ' || code === 'Enter');
     const isCrossKey = (k === 'a' || k === 'l' || code === 'KeyA' || code === 'KeyL');
+
+    if (MATCH.state === 'PENALTY_SHOOTOUT') {
+        if (CHARGE.active && (isShootKey || isPassKey)) {
+            const pwr = CHARGE.power;
+            CHARGE.displayPower = pwr;
+            CHARGE.fadeTimer = 0.85;
+            CHARGE.active = false;
+            CHARGE.kicker = null;
+            fireUserPenaltyKick(pwr);
+        }
+        return;
+    }
 
     if (CHARGE.active && ((CHARGE.type === 'SHOOT' && isShootKey) || (CHARGE.type === 'CROSS' && isCrossKey))) {
         const striker = getStrikingUserPlayer() || CHARGE.kicker || controlledPlayer[0];
@@ -3005,8 +3025,22 @@ function toggleTouchControls() {
 
 function triggerTouchAction(action, isDown) {
     if (MATCH.state === 'PENALTY_SHOOTOUT') {
-        if (isDown && PENALTY_STATE.phase === 'AIM' && PENALTY_STATE.turnTeam === 0 && (action === 'SHOOT' || action === 'PASS')) {
-            fireUserPenaltyKick();
+        if (PENALTY_STATE.phase === 'AIM' && PENALTY_STATE.turnTeam === 0 && (action === 'SHOOT' || action === 'PASS')) {
+            if (isDown && !CHARGE.active) {
+                CHARGE.active = true;
+                CHARGE.type = 'SHOOT';
+                CHARGE.kicker = PENALTY_STATE.kicker;
+                CHARGE.holdTime = 0;
+                CHARGE.power = 0.16;
+                CHARGE.displayPower = 0.16;
+            } else if (!isDown && CHARGE.active) {
+                const pwr = CHARGE.power;
+                CHARGE.displayPower = pwr;
+                CHARGE.fadeTimer = 0.85;
+                CHARGE.active = false;
+                CHARGE.kicker = null;
+                fireUserPenaltyKick(pwr);
+            }
         }
         return;
     }
@@ -3876,7 +3910,74 @@ function updateGoalkeeperAI(gk, dt) {
         return;
     }
 
-    // Standard Goal-Line Positioning (Only when not diving)
+    // 1. Goalkeeper Smother / Catch when an opponent dribbles right in front of him
+    if (BALL.owner && BALL.owner.teamIdx !== gk.teamIdx && !MATCH.kickoffRestriction && !MATCH.setPieceRestriction) {
+        const carrier = BALL.owner;
+        const distFromGoalX = Math.abs(BALL.x - goalX);
+        const distToBall = Math.hypot(BALL.x - gk.x, BALL.z - gk.z);
+        const distToCarrier = Math.hypot(carrier.x - gk.x, carrier.z - gk.z);
+
+        // If the dribbler brings the ball within the goalkeeper's reach in front of him, GK catches it cleanly!
+        if (distToBall < 1.72 || distToCarrier < 1.55) {
+            carrier.stumbleTimer = 0.60;
+            carrier.vx *= 0.2;
+            carrier.vz *= 0.2;
+            if (CHARGE.active && CHARGE.kicker === carrier) {
+                CHARGE.active = false;
+                CHARGE.displayPower = 0;
+                CHARGE.kicker = null;
+            }
+            BALL.owner = gk;
+            BALL.isShot = false;
+            BALL.passTarget = null;
+            BALL.passAssistTimer = 0;
+            BALL.lastTouchTeam = gk.teamIdx;
+            BALL.vx = 0; BALL.vz = 0; BALL.vy = 0;
+            gk.holdTimer = 1.15;
+            MATCH.stats.saves[gk.teamIdx]++;
+            showEventBanner(`🧤 ${gk.data.name} CATCHES THE BALL AT ${carrier.data.name}'S FEET!`, 2.0);
+            return;
+        }
+
+        // If the dribbler enters the penalty box in front of the keeper, GK steps out to narrow the angle & smother
+        if (distFromGoalX < 12.0 && Math.abs(BALL.z) < 11.5) {
+            const rushRatio = distFromGoalX < 5.5 ? 0.85 : 0.38;
+            const targetX = goalX + (BALL.x - goalX) * rushRatio;
+            const targetZ = Math.max(-GOAL_W * 0.65, Math.min(GOAL_W * 0.65, BALL.z * 0.82));
+            const dx = targetX - gk.x;
+            const dz = targetZ - gk.z;
+            const d = Math.hypot(dx, dz) || 1;
+            const rushSpd = Math.min(7.2, d * 5.2);
+            gk.vx = (dx / d) * rushSpd;
+            gk.vz = (dz / d) * rushSpd;
+            gk.facing = Math.atan2(BALL.z - gk.z, BALL.x - gk.x);
+            return;
+        }
+    }
+
+    // 2. Goalkeeper collects loose non-shot balls inside his 6-yard / penalty area
+    if (!BALL.owner && !BALL.isShot && BALL.pickupCooldown <= 0 && Math.abs(BALL.x - goalX) < 8.5 && Math.abs(BALL.z) < 8.5) {
+        const dLoose = Math.hypot(BALL.x - gk.x, BALL.z - gk.z);
+        if (dLoose < 1.60 && BALL.y < 1.65) {
+            BALL.owner = gk;
+            BALL.isShot = false;
+            BALL.passTarget = null;
+            BALL.passAssistTimer = 0;
+            BALL.lastTouchTeam = gk.teamIdx;
+            BALL.vx = 0; BALL.vz = 0; BALL.vy = 0;
+            gk.holdTimer = 1.1;
+            return;
+        }
+        const dx = BALL.x - gk.x;
+        const dz = BALL.z - gk.z;
+        const d = Math.hypot(dx, dz) || 1;
+        gk.vx = (dx / d) * 6.8;
+        gk.vz = (dz / d) * 6.8;
+        gk.facing = Math.atan2(dz, dx);
+        return;
+    }
+
+    // 3. Standard Goal-Line Positioning (Only when not diving)
     const targetZ = Math.max(-GOAL_W * 0.38, Math.min(GOAL_W * 0.38, BALL.z * 0.50));
     gk.vx = (goalX - gk.x) * 4.5;
     gk.vz = (targetZ - gk.z) * 5.2;
@@ -4014,7 +4115,45 @@ function updateBallPhysics(dt) {
         BALL.vx = o.vx;
         BALL.vz = o.vz;
         BALL.vy = 0;
-    } else {
+        BALL.lastTouchTeam = o.teamIdx;
+
+        // Check if the ball carrier dribbled the ball out of bounds (or directly into the goal)
+        if (MATCH.state === 'PLAYING' && !MATCH.kickoffRestriction && !MATCH.setPieceRestriction) {
+            const hw = PITCH_W / 2;
+            const hh = PITCH_H / 2;
+            const inGoalMouthZ = Math.abs(BALL.z) < (GOAL_W / 2 - 0.15);
+
+            if (Math.abs(BALL.x) >= hw && inGoalMouthZ) {
+                // Player walked the ball across the goal line between the posts -> release into net to score!
+                BALL.shooterName = o.data.name;
+                BALL.lastKicker = o;
+                BALL.owner = null;
+                BALL.vx = Math.sign(BALL.x) * 14.0;
+            } else if (Math.abs(BALL.z) > hh || Math.abs(o.z) > hh) {
+                // Player carried the ball out over the sideline -> Throw-In to the other team!
+                const zSign = Math.sign(BALL.z || o.z) || 1;
+                BALL.lastTouchTeam = o.teamIdx;
+                o.z = zSign * (hh - 2.2);
+                o.vx = 0; o.vz = 0;
+                CHARGE.active = false;
+                CHARGE.displayPower = 0;
+                BALL.owner = null;
+                handleOutOfBoundsThrowIn(zSign);
+            } else if (Math.abs(BALL.x) >= hw || Math.abs(o.x) >= hw) {
+                // Player carried the ball out over the endline -> Goal Kick or Corner to the other team!
+                const xSign = Math.sign(BALL.x || o.x) || 1;
+                BALL.lastTouchTeam = o.teamIdx;
+                o.x = xSign * (hw - 2.5);
+                o.vx = 0; o.vz = 0;
+                CHARGE.active = false;
+                CHARGE.displayPower = 0;
+                BALL.owner = null;
+                handleOutOfBoundsEndline(xSign);
+            }
+        }
+    }
+
+    if (!BALL.owner) {
         const subSteps = 3;
         const sdt = dt / subSteps;
 
@@ -4047,9 +4186,6 @@ function updateBallPhysics(dt) {
 
                     if (MATCH.state === 'PENALTY_SHOOTOUT' && !PENALTY_STATE.shotResolved) {
                         PENALTY_STATE.shotScored = true;
-                        PENALTY_STATE.shotResolved = true;
-                        const kTeam = PENALTY_STATE.turnTeam;
-                        showEventBanner(`⚽ PENALTY SCORED BY ${TEAMS[selectedTeams[kTeam]].name}!`, 1.6);
                     }
 
                     if (!MATCH.goalScoredLatch && MATCH.state === 'PLAYING') {
@@ -4486,38 +4622,86 @@ function renderOverheadHUDAndRadar() {
         hudCtx.restore();
     }
 
-    // Penalty Shootout 2D HUD Overlay (Target Aim Reticle + Shootout Scoreboard)
+    // Penalty Shootout 2D HUD Overlay (Target Aim Reticle + Power Gauge + Shootout Scoreboard)
     if (MATCH.state === 'PENALTY_SHOOTOUT' && PENALTY_STATE.active) {
         if (PENALTY_STATE.phase === 'AIM' && PENALTY_STATE.turnTeam === 0) {
-            const aimScreen = projectToScreen(new THREE.Vector3(42, 1.55, PENALTY_STATE.userAimZ));
+            const aimScreen = projectToScreen(42.0, PENALTY_STATE.userAimY, PENALTY_STATE.userAimZ);
             if (aimScreen) {
                 hudCtx.save();
-                hudCtx.strokeStyle = '#34d399';
-                hudCtx.lineWidth = 2.6;
+                const pulseR = 19 + Math.sin(performance.now() * 0.01) * 2.5;
+
+                // Outer dark contrast ring
+                hudCtx.strokeStyle = 'rgba(2, 6, 23, 0.85)';
+                hudCtx.lineWidth = 5.0;
                 hudCtx.beginPath();
-                hudCtx.arc(aimScreen.x, aimScreen.y, 18, 0, Math.PI * 2);
+                hudCtx.arc(aimScreen.x, aimScreen.y, pulseR, 0, Math.PI * 2);
                 hudCtx.stroke();
+
+                // Bright emerald target ring
+                hudCtx.strokeStyle = CHARGE.active ? '#fbbf24' : '#34d399';
+                hudCtx.lineWidth = 2.8;
                 hudCtx.beginPath();
-                hudCtx.moveTo(aimScreen.x - 25, aimScreen.y);
-                hudCtx.lineTo(aimScreen.x + 25, aimScreen.y);
-                hudCtx.moveTo(aimScreen.x, aimScreen.y - 25);
-                hudCtx.lineTo(aimScreen.x, aimScreen.y + 25);
+                hudCtx.arc(aimScreen.x, aimScreen.y, pulseR, 0, Math.PI * 2);
                 hudCtx.stroke();
+
+                // Crosshair lines
+                hudCtx.beginPath();
+                hudCtx.moveTo(aimScreen.x - 27, aimScreen.y);
+                hudCtx.lineTo(aimScreen.x - 7, aimScreen.y);
+                hudCtx.moveTo(aimScreen.x + 7, aimScreen.y);
+                hudCtx.lineTo(aimScreen.x + 27, aimScreen.y);
+                hudCtx.moveTo(aimScreen.x, aimScreen.y - 27);
+                hudCtx.lineTo(aimScreen.x, aimScreen.y - 7);
+                hudCtx.moveTo(aimScreen.x, aimScreen.y + 7);
+                hudCtx.lineTo(aimScreen.x, aimScreen.y + 27);
+                hudCtx.stroke();
+
+                // Center bullseye dot
                 hudCtx.fillStyle = '#ffffff';
+                hudCtx.beginPath();
+                hudCtx.arc(aimScreen.x, aimScreen.y, 3.5, 0, Math.PI * 2);
+                hudCtx.fill();
+
+                // 4-Bar Shot Power Gauge right below the target cursor when charging
+                if (CHARGE.displayPower > 0.01) {
+                    const barW = 68;
+                    const bx = aimScreen.x - barW / 2;
+                    const py = aimScreen.y + 28;
+                    const segW = (barW - 6) / 4;
+                    const segColors = ['#22c55e', '#eab308', '#f97316', '#ef4444'];
+                    hudCtx.fillStyle = 'rgba(2, 6, 23, 0.92)';
+                    hudCtx.fillRect(bx - 2, py - 2, barW + 4, 10);
+                    for (let i = 0; i < 4; i++) {
+                        const sx = bx + i * (segW + 2);
+                        hudCtx.fillStyle = 'rgba(30, 41, 59, 0.95)';
+                        hudCtx.fillRect(sx, py, segW, 6);
+                        const segFill = Math.max(0, Math.min(1, (CHARGE.displayPower - i * 0.25) / 0.25));
+                        if (segFill > 0) {
+                            hudCtx.fillStyle = segColors[i];
+                            hudCtx.fillRect(sx, py, segW * segFill, 6);
+                        }
+                    }
+                }
+
+                hudCtx.fillStyle = '#ffffff';
+                hudCtx.shadowColor = 'rgba(0,0,0,0.9)';
+                hudCtx.shadowBlur = 4;
                 hudCtx.font = '900 11px Inter, sans-serif';
                 hudCtx.textAlign = 'center';
-                hudCtx.fillText('AIM TARGET (A/D OR ◄/►) • HOLD K / SPACE FOR POWER', aimScreen.x, aimScreen.y - 28);
+                hudCtx.fillText('AIM CURSOR (ARROWS / MOUSE) • HOLD SHOOT (D / SPACE / CLICK) FOR POWER', aimScreen.x, aimScreen.y - 30);
                 hudCtx.restore();
             }
         } else if (PENALTY_STATE.phase === 'AIM' && PENALTY_STATE.turnTeam === 1) {
-            const gkScreen = projectToScreen(new THREE.Vector3(41.7, 2.3, PENALTY_STATE.userGkDiveDir * 2.5));
+            const gkScreen = projectToScreen(41.7, 2.35, PENALTY_STATE.userGkDiveDir * 2.6);
             if (gkScreen) {
                 hudCtx.save();
                 hudCtx.fillStyle = '#22d3ee';
-                hudCtx.font = '900 11px Inter, sans-serif';
+                hudCtx.shadowColor = 'rgba(0,0,0,0.9)';
+                hudCtx.shadowBlur = 4;
+                hudCtx.font = '900 12px Inter, sans-serif';
                 hudCtx.textAlign = 'center';
                 const dirLabel = PENALTY_STATE.userGkDiveDir < 0 ? '◄ DIVE LEFT' : (PENALTY_STATE.userGkDiveDir > 0 ? 'DIVE RIGHT ►' : 'STAY CENTER •');
-                hudCtx.fillText(`GK DIVE PRE-SELECT (A/D): ${dirLabel}`, gkScreen.x, gkScreen.y - 18);
+                hudCtx.fillText(`GK DIVE PRE-SELECT (◄/► OR MOUSE): ${dirLabel}`, gkScreen.x, gkScreen.y - 18);
                 hudCtx.restore();
             }
         }
@@ -4531,7 +4715,8 @@ function renderOverheadHUDAndRadar() {
         hudCtx.strokeStyle = 'rgba(251, 191, 36, 0.7)';
         hudCtx.lineWidth = 1.8;
         hudCtx.beginPath();
-        hudCtx.roundRect(px, py, pw, ph, 12);
+        if (hudCtx.roundRect) hudCtx.roundRect(px, py, pw, ph, 12);
+        else hudCtx.rect(px, py, pw, ph);
         hudCtx.fill();
         hudCtx.stroke();
 
@@ -4751,7 +4936,9 @@ const PENALTY_STATE = {
     phase: 'AIM',
     phaseTimer: 0,
     userAimZ: 0,
+    userAimY: 1.25,
     userGkDiveDir: 0,
+    activeGkDiveDir: 0,
     kicker: null,
     gk: null,
     shotScored: false,
@@ -4759,7 +4946,67 @@ const PENALTY_STATE = {
     winnerTeam: null
 };
 
+// Mouse / Pointer Aiming & Power Charging Support during Penalty Shootouts
+window.addEventListener('pointermove', e => {
+    if (MATCH.state !== 'PENALTY_SHOOTOUT' || !PENALTY_STATE.active || PENALTY_STATE.phase !== 'AIM') return;
+    if (e.target && e.target.closest && e.target.closest('button, select, input, #joystick-zone')) return;
+
+    const nx = (e.clientX / window.innerWidth) * 2 - 1;
+    const ny = -(e.clientY / window.innerHeight) * 2 + 1;
+
+    if (PENALTY_STATE.turnTeam === 0) {
+        // Raycast pointer onto the goal line plane x = 42.0
+        const nearPt = new THREE.Vector3(nx, ny, 0.1).unproject(camera);
+        const dir = nearPt.sub(camera.position).normalize();
+        if (Math.abs(dir.x) > 0.01) {
+            const t = (42.0 - camera.position.x) / dir.x;
+            if (t > 0) {
+                const hitZ = camera.position.z + dir.z * t;
+                const hitY = camera.position.y + dir.y * t;
+                PENALTY_STATE.userAimZ = Math.max(-4.25, Math.min(4.25, hitZ));
+                PENALTY_STATE.userAimY = Math.max(0.32, Math.min(2.45, hitY));
+            }
+        }
+    } else {
+        if (nx < -0.15) PENALTY_STATE.userGkDiveDir = -1;
+        else if (nx > 0.15) PENALTY_STATE.userGkDiveDir = 1;
+        else PENALTY_STATE.userGkDiveDir = 0;
+    }
+});
+
+window.addEventListener('pointerdown', e => {
+    if (MATCH.state !== 'PENALTY_SHOOTOUT' || !PENALTY_STATE.active || PENALTY_STATE.phase !== 'AIM') return;
+    if (e.button !== undefined && e.button !== 0) return;
+    if (e.target && e.target.closest && e.target.closest('button, select, input, #joystick-zone, #touch-controls')) return;
+
+    if (PENALTY_STATE.turnTeam === 0 && !CHARGE.active) {
+        CHARGE.active = true;
+        CHARGE.type = 'SHOOT';
+        CHARGE.kicker = PENALTY_STATE.kicker;
+        CHARGE.holdTime = 0;
+        CHARGE.power = 0.16;
+        CHARGE.displayPower = 0.16;
+    }
+});
+
+window.addEventListener('pointerup', e => {
+    if (MATCH.state !== 'PENALTY_SHOOTOUT' || !PENALTY_STATE.active) return;
+    if (e.target && e.target.closest && e.target.closest('#touch-controls')) return;
+    if (PENALTY_STATE.phase === 'AIM' && PENALTY_STATE.turnTeam === 0 && CHARGE.active) {
+        const pwr = CHARGE.power;
+        CHARGE.displayPower = pwr;
+        CHARGE.fadeTimer = 0.85;
+        CHARGE.active = false;
+        CHARGE.kicker = null;
+        fireUserPenaltyKick(pwr);
+    }
+});
+
 function startPenaltyShootout() {
+    MATCH.kickoffRestriction = false;
+    MATCH.setPieceRestriction = null;
+    CHARGE.active = false;
+    CHARGE.displayPower = 0;
     MATCH.state = 'PENALTY_SHOOTOUT';
     PENALTY_STATE.active = true;
     PENALTY_STATE.turnTeam = 0;
@@ -4770,6 +5017,10 @@ function startPenaltyShootout() {
     PENALTY_STATE.winnerTeam = null;
     document.getElementById('hud-half-label').textContent = 'PENALTIES';
     setupNextPenaltyKick();
+    // Snap camera immediately behind the penalty taker
+    camera.up.set(0, 1, 0);
+    camera.position.set(22.8, 3.65, -0.25);
+    camera.lookAt(42.0, 1.35, 0);
 }
 
 function checkPenaltyShootoutWinner() {
@@ -4799,11 +5050,12 @@ function setupNextPenaltyKick() {
 
     // Line non-active players along the halfway line
     players.forEach((p, idx) => {
-        p.vx = 0; p.vz = 0; p.isSprinting = false;
-        p.x = (p.teamIdx === 0 ? -1.8 : 1.8);
-        p.z = -12 + (idx % 11) * 2.4;
-        p.facingAngle = 0;
-        p.mesh.position.set(p.x, 0, p.z);
+        p.vx = 0; p.vz = 0;
+        p.diveTimer = 0; p.slideTimer = 0; p.stumbleTimer = 0; p.kickAnimTimer = 0;
+        p.x = (p.teamIdx === 0 ? -2.2 : 2.2);
+        p.z = -11 + (idx % 11) * 2.2;
+        p.facing = 0;
+        syncPlayer3D(p, 0.016);
     });
 
     const teamOutfield = players.filter(p => p.teamIdx === shootingTeam && !p.isGK);
@@ -4816,58 +5068,64 @@ function setupNextPenaltyKick() {
     PENALTY_STATE.phase = 'AIM';
     PENALTY_STATE.phaseTimer = 0;
     PENALTY_STATE.userAimZ = 0;
+    PENALTY_STATE.userAimY = 1.25;
     PENALTY_STATE.userGkDiveDir = 0;
+    PENALTY_STATE.activeGkDiveDir = 0;
     PENALTY_STATE.shotScored = false;
     PENALTY_STATE.shotResolved = false;
-    shotCharge[0] = 0;
+    CHARGE.active = false;
+    CHARGE.power = 0;
+    CHARGE.displayPower = 0;
 
     // Position ball on right penalty spot (x = 32.6, z = 0)
     BALL.owner = null;
+    BALL.isShot = false;
     BALL.x = 32.6;
-    BALL.y = BALL_RADIUS;
+    BALL.y = 0.28;
     BALL.z = 0;
     BALL.vx = 0; BALL.vy = 0; BALL.vz = 0;
     ballMesh.position.set(BALL.x, BALL.y, BALL.z);
 
     if (kicker) {
-        kicker.x = 29.2;
-        kicker.z = -0.5;
-        kicker.facingAngle = 0;
-        kicker.mesh.position.set(kicker.x, 0, kicker.z);
+        kicker.x = 29.8;
+        kicker.z = -0.35;
+        kicker.facing = 0;
+        syncPlayer3D(kicker, 0.016);
         controlledPlayer[0] = (shootingTeam === 0) ? kicker : gk;
     }
     if (gk) {
         gk.x = 41.7;
         gk.z = 0;
-        gk.facingAngle = Math.PI;
-        gk.mesh.position.set(gk.x, 0, gk.z);
+        gk.facing = Math.PI;
+        syncPlayer3D(gk, 0.016);
     }
 
     if (shootingTeam === 0) {
-        showBanner('YOUR PENALTY KICK', 'AIM WITH A/D • HOLD K OR SPACE TO SHOOT', 1800);
+        showEventBanner('⚽ YOUR PENALTY KICK — AIM CURSOR & HOLD SHOOT (D / SPACE / CLICK) FOR POWER!', 2.4);
     } else {
-        showBanner('OPPONENT PENALTY KICK', 'CHOOSE GK DIVE DIRECTION WITH A / D (LEFT / RIGHT)', 1800);
+        showEventBanner('🧤 OPPONENT PENALTY KICK — CHOOSE GK DIVE (◄ LEFT / RIGHT ► OR MOUSE)!', 2.2);
     }
 }
 
-function fireUserPenaltyKick() {
+function fireUserPenaltyKick(customPower) {
     if (PENALTY_STATE.phase !== 'AIM' || PENALTY_STATE.turnTeam !== 0) return;
-    const power = Math.max(0.28, shotCharge[0] || 0.65);
-    shotCharge[0] = 0;
-    firePenaltyShot(0, PENALTY_STATE.userAimZ, power);
+    const power = Math.max(0.22, Math.min(1.0, customPower !== undefined ? customPower : (CHARGE.power || 0.62)));
+    CHARGE.active = false;
+    firePenaltyShot(0, PENALTY_STATE.userAimZ, PENALTY_STATE.userAimY, power);
 }
 
-function firePenaltyShot(shootingTeam, aimZ, power) {
+function firePenaltyShot(shootingTeam, aimZ, aimY, power) {
     PENALTY_STATE.phase = 'SHOT_FLIGHT';
     PENALTY_STATE.phaseTimer = 0;
 
     const kicker = PENALTY_STATE.kicker;
     const gk = PENALTY_STATE.gk;
     if (kicker) {
-        kicker.x = 31.8;
-        kicker.z = 0;
-        kicker.kickAnimTimer = 0.35;
-        kicker.mesh.position.set(kicker.x, 0, kicker.z);
+        kicker.x = 31.85;
+        kicker.z = -0.12;
+        kicker.facing = Math.atan2(aimZ, 42.0 - 32.6);
+        kicker.kickAnimTimer = 0.38;
+        syncPlayer3D(kicker, 0.016);
     }
 
     // GK Dive Logic
@@ -4875,7 +5133,7 @@ function firePenaltyShot(shootingTeam, aimZ, power) {
     if (shootingTeam === 0) {
         // AI Goalkeeper guesses direction (reads aim 45% of the time, random 55%)
         if (Math.random() < 0.45) {
-            diveDir = Math.abs(aimZ) < 1.1 ? 0 : Math.sign(aimZ);
+            diveDir = Math.abs(aimZ) < 1.05 ? 0 : Math.sign(aimZ);
         } else {
             const dirs = [-1, 0, 1];
             diveDir = dirs[Math.floor(Math.random() * dirs.length)];
@@ -4885,71 +5143,117 @@ function firePenaltyShot(shootingTeam, aimZ, power) {
     }
     PENALTY_STATE.activeGkDiveDir = diveDir;
 
-    // Launch ball toward (42.5, y, aimZ)
+    if (gk && diveDir !== 0) {
+        gk.diveDuration = 0.65;
+        gk.diveTimer = 0.65;
+        gk.diveDirZ = diveDir;
+        gk.diveTargetY = Math.min(GOAL_H - 0.2, Math.max(0.5, aimY));
+    }
+
+    // Launch ball toward (42.5, aimY, aimZ)
+    const isOvercharged = power > 0.88;
+    const errZ = isOvercharged ? (Math.random() - 0.5) * 2.2 : (Math.random() - 0.5) * 0.28;
+    const errY = isOvercharged ? Math.random() * 1.15 : 0;
+    const finalZ = aimZ + errZ;
+    const finalY = Math.max(0.28, aimY + errY);
+
     const dx = 42.5 - BALL.x;
-    const dz = aimZ - BALL.z;
+    const dz = finalZ - BALL.z;
     const dist = Math.hypot(dx, dz) || 1;
-    const speed = 22 + power * 11;
-    const errZ = (power > 0.92) ? (Math.random() - 0.5) * 1.4 : (Math.random() - 0.5) * 0.35;
+    const speed = 23.0 + power * 13.5;
+    const flightTime = dist / speed;
+
+    BALL.isShot = true;
     BALL.vx = (dx / dist) * speed;
-    BALL.vz = ((dz + errZ) / dist) * speed;
-    BALL.vy = 2.6 + power * 4.4;
-    AudioFX.kick(1.2);
+    BALL.vz = (dz / dist) * speed;
+    // Calibrate vertical velocity so ball reaches finalY at the goal line under 19.5 m/s^2 gravity
+    BALL.vy = Math.max(0.8, ((finalY - 0.28) + 0.5 * 19.5 * flightTime * flightTime) / flightTime);
 }
 
 function updatePenaltyShootout(dt) {
     PENALTY_STATE.phaseTimer += dt;
 
-    // Penalty Shootout Camera behind the taker
-    const targetCamPos = new THREE.Vector3(21.5, 4.8, 0);
-    const targetLookAt = new THREE.Vector3(42.0, 1.5, 0);
-    camera.position.lerp(targetCamPos, dt * 6);
-    cameraLookTarget.lerp(targetLookAt, dt * 8);
-    camera.lookAt(cameraLookTarget);
+    // Camera positioned directly behind the player who shoots, looking into the goalmouth
+    const targetX = 22.8;
+    const targetY = 3.65;
+    const targetZ = -0.25;
+    const camLerp = Math.min(1, dt * 6.5);
+    camera.position.x += (targetX - camera.position.x) * camLerp;
+    camera.position.y += (targetY - camera.position.y) * camLerp;
+    camera.position.z += (targetZ - camera.position.z) * camLerp;
+    camera.up.set(0, 1, 0);
+    camera.lookAt(42.0, 1.35, 0);
+
+    // Advance CHARGE power bar as usual when holding Shoot
+    if (CHARGE.active && PENALTY_STATE.phase === 'AIM' && PENALTY_STATE.turnTeam === 0) {
+        CHARGE.holdTime += dt;
+        CHARGE.power = Math.min(1.0, CHARGE.power + dt * 1.18);
+        CHARGE.displayPower = CHARGE.power;
+        if (CHARGE.holdTime >= 0.95) {
+            const pwr = CHARGE.power;
+            CHARGE.displayPower = pwr;
+            CHARGE.fadeTimer = 0.85;
+            CHARGE.active = false;
+            CHARGE.kicker = null;
+            fireUserPenaltyKick(pwr);
+            return;
+        }
+    } else if (CHARGE.fadeTimer > 0) {
+        CHARGE.fadeTimer = Math.max(0, CHARGE.fadeTimer - dt);
+        if (CHARGE.fadeTimer === 0) CHARGE.displayPower = 0;
+    }
+
+    const inp = getPlayerInputVector();
 
     if (PENALTY_STATE.phase === 'AIM') {
         if (PENALTY_STATE.turnTeam === 0) {
-            const p1In = getPlayerInput(0);
-            PENALTY_STATE.userAimZ = THREE.MathUtils.clamp(PENALTY_STATE.userAimZ + p1In.mx * dt * 5.8, -4.1, 4.1);
-            if (p1In.shootHeld) {
-                shotCharge[0] = Math.min(1.0, shotCharge[0] + dt * 1.35);
+            // Arrow keys / joystick move the target cursor inside the goalmouth
+            // Since camera is at x=22.8 looking toward x=42.0: screen Left = -Z, screen Right = +Z, screen Up = +Y
+            if (Math.abs(inp.x) > 0.05) {
+                PENALTY_STATE.userAimZ = Math.max(-4.25, Math.min(4.25, PENALTY_STATE.userAimZ + inp.x * dt * 6.2));
             }
-            if (PENALTY_STATE.phaseTimer > 6.5) {
-                firePenaltyShot(0, PENALTY_STATE.userAimZ, 0.65);
+            if (Math.abs(inp.z) > 0.05) {
+                PENALTY_STATE.userAimY = Math.max(0.32, Math.min(2.45, PENALTY_STATE.userAimY - inp.z * dt * 3.8));
             }
         } else {
-            const p1In = getPlayerInput(0);
-            if (p1In.mx < -0.25) PENALTY_STATE.userGkDiveDir = -1;
-            else if (p1In.mx > 0.25) PENALTY_STATE.userGkDiveDir = 1;
-            else if (Math.abs(p1In.mx) > 0.01) PENALTY_STATE.userGkDiveDir = 0;
+            if (inp.x < -0.25) PENALTY_STATE.userGkDiveDir = -1;
+            else if (inp.x > 0.25) PENALTY_STATE.userGkDiveDir = 1;
+            else if (Math.abs(inp.z) > 0.25) PENALTY_STATE.userGkDiveDir = 0;
 
-            if (PENALTY_STATE.phaseTimer > 2.2) {
-                const aiTargets = [-3.2, -2.4, -1.5, 0, 1.5, 2.4, 3.2];
-                const aiAimZ = aiTargets[Math.floor(Math.random() * aiTargets.length)];
-                const aiPower = 0.55 + Math.random() * 0.32;
-                firePenaltyShot(1, aiAimZ, aiPower);
+            if (PENALTY_STATE.phaseTimer > 2.1) {
+                const aiTargetsZ = [-3.3, -2.5, -1.6, 0, 1.6, 2.5, 3.3];
+                const aiAimZ = aiTargetsZ[Math.floor(Math.random() * aiTargetsZ.length)];
+                const aiAimY = 0.55 + Math.random() * 1.55;
+                const aiPower = 0.52 + Math.random() * 0.30;
+                firePenaltyShot(1, aiAimZ, aiAimY, aiPower);
             }
         }
+        players.forEach(p => syncPlayer3D(p, dt));
     } else if (PENALTY_STATE.phase === 'SHOT_FLIGHT') {
-        // Move diving goalkeeper
         const gk = PENALTY_STATE.gk;
         if (gk) {
-            const targetGkZ = (PENALTY_STATE.activeGkDiveDir || 0) * 2.85;
-            gk.z = THREE.MathUtils.lerp(gk.z, targetGkZ, dt * 7.5);
-            gk.mesh.position.set(gk.x, 0, gk.z);
+            if (gk.diveTimer > 0) {
+                gk.diveTimer = Math.max(0, gk.diveTimer - dt);
+            }
+            const targetGkZ = (PENALTY_STATE.activeGkDiveDir || 0) * 2.95;
+            gk.z += (targetGkZ - gk.z) * Math.min(1, dt * 8.2);
 
             // Check GK Save collision near goal line
             const distBallToGk = Math.hypot(BALL.x - gk.x, BALL.z - gk.z);
-            if (!PENALTY_STATE.shotScored && BALL.x > 40.4 && BALL.x < 42.1 && distBallToGk < 1.35 && BALL.y < 2.55) {
-                BALL.vx = -Math.abs(BALL.vx) * 0.45;
-                BALL.vz += (Math.random() - 0.5) * 6;
-                BALL.vy = 2.5;
-                AudioFX.kick(0.95);
+            if (!PENALTY_STATE.shotScored && BALL.x > 40.3 && BALL.x < 42.1 && distBallToGk < 1.50 && BALL.y < 2.50) {
+                BALL.vx = -Math.abs(BALL.vx) * 0.42;
+                BALL.vz += (PENALTY_STATE.activeGkDiveDir || (Math.random() > 0.5 ? 1 : -1)) * 6.5;
+                BALL.vy = 2.4;
             }
         }
 
+        players.forEach(p => {
+            if (p.kickAnimTimer > 0) p.kickAnimTimer = Math.max(0, p.kickAnimTimer - dt);
+            syncPlayer3D(p, dt);
+        });
         updateBallPhysics(dt);
-        updateGoalNetPhysics(dt);
+        leftGoalNet.update(dt);
+        rightGoalNet.update(dt);
 
         if (PENALTY_STATE.shotScored && !PENALTY_STATE.shotResolved) {
             PENALTY_STATE.shotResolved = true;
@@ -4957,31 +5261,35 @@ function updatePenaltyShootout(dt) {
             PENALTY_STATE.taken[st]++;
             PENALTY_STATE.scored[st]++;
             PENALTY_STATE.history[st].push(true);
-            showBanner('⚽ PENALTY SCORED!', `${TEAMS[selectedTeams[st]].name.toUpperCase()} CONVERTS!`, 1800);
+            showEventBanner(`⚽ PENALTY SCORED! ${TEAMS[selectedTeams[st]].name.toUpperCase()} CONVERTS!`, 1.8);
             PENALTY_STATE.phase = 'RESULT_WAIT';
             PENALTY_STATE.phaseTimer = 0;
-        } else if (!PENALTY_STATE.shotResolved && (PENALTY_STATE.phaseTimer > 2.3 || BALL.x < 28 || (BALL.x > 42.2 && Math.abs(BALL.z) >= GOAL_W / 2) || Math.hypot(BALL.vx, BALL.vz) < 1.2)) {
+        } else if (!PENALTY_STATE.shotResolved && (PENALTY_STATE.phaseTimer > 2.2 || BALL.x < 28 || (BALL.x > 42.15 && (Math.abs(BALL.z) >= GOAL_W / 2 || BALL.y > GOAL_H)) || Math.hypot(BALL.vx, BALL.vz) < 1.2)) {
             PENALTY_STATE.shotResolved = true;
             const st = PENALTY_STATE.turnTeam;
             PENALTY_STATE.taken[st]++;
             PENALTY_STATE.history[st].push(false);
-            AudioFX.whistle(520, 0.3);
-            showBanner('❌ PENALTY MISSED / SAVED!', `${TEAMS[selectedTeams[st]].name.toUpperCase()} DENIED!`, 1800);
+            showEventBanner(`🧤 PENALTY SAVED / MISSED! ${TEAMS[selectedTeams[st]].name.toUpperCase()} DENIED!`, 1.8);
             PENALTY_STATE.phase = 'RESULT_WAIT';
             PENALTY_STATE.phaseTimer = 0;
         }
     } else if (PENALTY_STATE.phase === 'RESULT_WAIT') {
+        players.forEach(p => {
+            if (p.diveTimer > 0) p.diveTimer = Math.max(0, p.diveTimer - dt);
+            syncPlayer3D(p, dt);
+        });
         updateBallPhysics(dt);
-        updateGoalNetPhysics(dt);
+        leftGoalNet.update(dt);
+        rightGoalNet.update(dt);
+
         if (PENALTY_STATE.phaseTimer > 1.85) {
             const winner = checkPenaltyShootoutWinner();
             if (winner !== null) {
                 PENALTY_STATE.winnerTeam = winner;
                 PENALTY_STATE.active = false;
                 MATCH.state = 'FULLTIME';
-                AudioFX.whistle(740, 0.85);
-                showBanner('🏆 SHOOTOUT WINNER!', `${TEAMS[selectedTeams[winner]].name.toUpperCase()} WINS ${PENALTY_STATE.scored[0]}-${PENALTY_STATE.scored[1]} ON PENALTIES!`, 2800);
-                setTimeout(() => openFulltimeModal(), 1600);
+                showEventBanner(`🏆 ${TEAMS[selectedTeams[winner]].name.toUpperCase()} WINS ${PENALTY_STATE.scored[0]}-${PENALTY_STATE.scored[1]} ON PENALTIES!`, 2.8);
+                setTimeout(() => openFulltimeModal(), 1500);
             } else {
                 if (PENALTY_STATE.turnTeam === 1) {
                     PENALTY_STATE.round++;
