@@ -1087,10 +1087,11 @@ function generateRosterForNation(idx, code, ovr, att, mid, def, starName, starOv
     return POSITIONS_11.map((pos, i) => {
         const seed = (idx * 31 + i * 17);
         const isStar = (i === 9); // ST or star slot
-        const name = isStar ? starName : `${FIRST_INITIALS[seed % FIRST_INITIALS.length]} ${GENERIC_SURNAMES[(seed * 7) % GENERIC_SURNAMES.length]}`;
-        const pOvr = isStar ? starOvr : Math.max(65, Math.min(93, ovr + ((seed % 5) - 2)));
-        const pac = Math.max(64, Math.min(97, (pos === "RW" || pos === "LW" || pos === "ST" ? att + 3 : mid) + ((seed % 7) - 3)));
-        const sho = Math.max(52, Math.min(96, (pos === "ST" || pos === "RW" || pos === "LW" ? att + 2 : (pos === "CM" ? mid - 2 : 58))));
+        const isEnglandCam = (code === "ENG" && i === 8); // England attacker (RW #7) named Cam
+        const name = isEnglandCam ? "Cam" : (isStar ? starName : `${FIRST_INITIALS[seed % FIRST_INITIALS.length]} ${GENERIC_SURNAMES[(seed * 7) % GENERIC_SURNAMES.length]}`);
+        const pOvr = isEnglandCam ? Math.max(90, ovr) : (isStar ? starOvr : Math.max(65, Math.min(93, ovr + ((seed % 5) - 2))));
+        const pac = isEnglandCam ? 92 : Math.max(64, Math.min(97, (pos === "RW" || pos === "LW" || pos === "ST" ? att + 3 : mid) + ((seed % 7) - 3)));
+        const sho = isEnglandCam ? 91 : Math.max(52, Math.min(96, (pos === "ST" || pos === "RW" || pos === "LW" ? att + 2 : (pos === "CM" ? mid - 2 : 58))));
         const df = Math.max(42, Math.min(94, (pos === "GK" || pos === "CB" || pos === "RB" || pos === "LB" ? def + 2 : (pos === "CM" ? mid - 4 : 48))));
         const gkDiv = (pos === "GK") ? Math.max(70, Math.min(95, def + 3 + ((seed % 5) - 2))) : 50;
         return {
@@ -1131,50 +1132,383 @@ let selectedTeams = [
 // Kit preference per slot: 'HOME' or 'AWAY'
 let selectedKitMode = ['HOME', 'HOME'];
 
-// Render crisp custom Vector SVG Flag for all 90 countries (never shows missing emoji glyphs on Windows/Linux)
-function renderFlagSVG(team, w = 48, h = 32) {
-    const spec = team.flagSpec || "H3:#1d4ed8,#ffffff,#dc2626";
-    const parts = spec.split("|");
-    const [layout, colorList] = parts[0].split(":");
-    const colors = (colorList || "#1d4ed8,#ffffff,#dc2626").split(",");
-    let body = "";
+// Accurate Vector SVG Flag Renderer for all 90 countries (crisp proportions, crosses, saltires, stars, crescents & emblems)
+function _svgStar(cx, cy, r, fill, pts = 5, innerRatio = 0.4, rotDeg = -90, stroke = "", sw = 0) {
+    let d = "";
+    const step = Math.PI / pts;
+    const rot = rotDeg * Math.PI / 180;
+    for (let i = 0; i < pts * 2; i++) {
+        const rad = (i % 2 === 0) ? r : r * innerRatio;
+        const a = rot + i * step;
+        d += (i === 0 ? "M" : "L") + (cx + Math.cos(a) * rad).toFixed(2) + "," + (cy + Math.sin(a) * rad).toFixed(2);
+    }
+    const st = stroke ? ` stroke="${stroke}" stroke-width="${sw}"` : "";
+    return `<path d="${d}Z" fill="${fill}"${st}/>`;
+}
 
-    if (layout === "H3") {
-        body = `<rect width="60" height="13.4" y="0" fill="${colors[0]}"/>
-                <rect width="60" height="13.4" y="13.3" fill="${colors[1]}"/>
-                <rect width="60" height="13.4" y="26.6" fill="${colors[2]}"/>`;
-    } else if (layout === "H2") {
-        body = `<rect width="60" height="20" y="0" fill="${colors[0]}"/>
-                <rect width="60" height="20" y="20" fill="${colors[1]}"/>`;
-    } else if (layout === "V3") {
-        body = `<rect width="20" height="40" x="0" fill="${colors[0]}"/>
-                <rect width="20" height="40" x="20" fill="${colors[1]}"/>
-                <rect width="20" height="40" x="40" fill="${colors[2]}"/>`;
-    } else if (layout === "V2") {
-        body = `<rect width="24" height="40" x="0" fill="${colors[0]}"/>
-                <rect width="36" height="40" x="24" fill="${colors[1]}"/>`;
-    } else if (layout === "CROSS") {
-        body = `<rect width="60" height="40" fill="${colors[0]}"/>
-                <rect width="60" height="8" y="16" fill="${colors[1]}"/>
-                <rect width="8" height="40" x="22" fill="${colors[1]}"/>`;
-    } else if (layout === "DIAMOND") {
-        body = `<rect width="60" height="40" fill="${colors[0]}"/>
-                <polygon points="30,4 54,20 30,36 6,20" fill="${colors[1]}"/>
-                <circle cx="30" cy="20" r="7.5" fill="${colors[2]}"/>`;
+function _svgHStripes(colors, weights = null) {
+    const n = colors.length;
+    const total = weights ? weights.reduce((a, b) => a + b, 0) : n;
+    let y = 0, out = "";
+    for (let i = 0; i < n; i++) {
+        const h = ((weights ? weights[i] : 1) / total) * 40;
+        out += `<rect x="0" y="${y.toFixed(2)}" width="60" height="${(h + 0.15).toFixed(2)}" fill="${colors[i]}"/>`;
+        y += h;
+    }
+    return out;
+}
+
+function _svgVStripes(colors, weights = null) {
+    const n = colors.length;
+    const total = weights ? weights.reduce((a, b) => a + b, 0) : n;
+    let x = 0, out = "";
+    for (let i = 0; i < n; i++) {
+        const w = ((weights ? weights[i] : 1) / total) * 60;
+        out += `<rect x="${x.toFixed(2)}" y="0" width="${(w + 0.15).toFixed(2)}" height="40" fill="${colors[i]}"/>`;
+        x += w;
+    }
+    return out;
+}
+
+function _svgNordic(bg, cross, fimb = null) {
+    let out = `<rect width="60" height="40" fill="${bg}"/>`;
+    if (fimb) {
+        out += `<rect x="16" y="0" width="9" height="40" fill="${fimb}"/><rect x="0" y="15.5" width="60" height="9" fill="${fimb}"/>`;
+        out += `<rect x="18.2" y="0" width="4.6" height="40" fill="${cross}"/><rect x="0" y="17.7" width="60" height="4.6" fill="${cross}"/>`;
     } else {
-        body = `<rect width="60" height="40" fill="${colors[0]}"/>`;
+        out += `<rect x="17.5" y="0" width="7" height="40" fill="${cross}"/><rect x="0" y="16.5" width="60" height="7" fill="${cross}"/>`;
     }
+    return out;
+}
 
-    if (parts[1]) {
-        const [accType, accColor] = parts[1].split(":");
-        if (accType === "C") {
-            body += `<circle cx="30" cy="20" r="6.5" fill="${accColor}"/>`;
-        } else if (accType === "TL") {
-            body += `<rect width="24" height="20" x="0" y="0" fill="${accColor}"/>`;
+function _svgUnionJackCanton(w = 30, h = 20) {
+    return `<svg x="0" y="0" width="${w}" height="${h}" viewBox="0 0 30 20">
+        <rect width="30" height="20" fill="#012169"/>
+        <path d="M0,0 L30,20 M30,0 L0,20" stroke="#ffffff" stroke-width="4.2"/>
+        <path d="M0,0 L30,20 M30,0 L0,20" stroke="#c8102e" stroke-width="1.8"/>
+        <rect x="12" y="0" width="6" height="20" fill="#ffffff"/>
+        <rect x="0" y="7" width="30" height="6" fill="#ffffff"/>
+        <rect x="13.2" y="0" width="3.6" height="20" fill="#c8102e"/>
+        <rect x="0" y="8.2" width="30" height="3.6" fill="#c8102e"/>
+    </svg>`;
+}
+
+function _svgSun(cx, cy, r, fill = "#f6b40e", rays = 12) {
+    let out = "";
+    for (let i = 0; i < rays; i++) {
+        const a = (i / rays) * Math.PI * 2;
+        const x1 = cx + Math.cos(a) * (r * 0.7), y1 = cy + Math.sin(a) * (r * 0.7);
+        const x2 = cx + Math.cos(a) * (r * 1.48), y2 = cy + Math.sin(a) * (r * 1.48);
+        out += `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke="${fill}" stroke-width="1.15"/>`;
+    }
+    out += `<circle cx="${cx}" cy="${cy}" r="${(r * 0.78).toFixed(2)}" fill="${fill}"/>`;
+    return out;
+}
+
+function _svgCrescent(cx, cy, r, fill, cutFill, dx = 2.4) {
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}"/><circle cx="${(cx + dx).toFixed(2)}" cy="${cy}" r="${(r * 0.82).toFixed(2)}" fill="${cutFill}"/>`;
+}
+
+function getAccurateFlagBody(code) {
+    switch (code) {
+        // --- SIMPLE & EXACT HORIZONTAL / VERTICAL TRICOLORS & BICOLORS ---
+        case "FRA": return _svgVStripes(["#002395", "#ffffff", "#ed2939"]);
+        case "ITA": return _svgVStripes(["#009246", "#ffffff", "#ce2b37"]);
+        case "BEL": return _svgVStripes(["#000000", "#fae042", "#ed2939"]);
+        case "NED": return _svgHStripes(["#ae1c28", "#ffffff", "#21468b"]);
+        case "GER": return _svgHStripes(["#000000", "#dd0000", "#ffce00"]);
+        case "AUT": return _svgHStripes(["#ed2939", "#ffffff", "#ed2939"]);
+        case "UKR": return _svgHStripes(["#0057b7", "#ffd700"]);
+        case "POL": return _svgHStripes(["#ffffff", "#dc143c"]);
+        case "IDN": return _svgHStripes(["#ce1126", "#ffffff"]);
+        case "HUN": return _svgHStripes(["#ce2939", "#ffffff", "#477050"]);
+        case "BUL": return _svgHStripes(["#ffffff", "#00966e", "#d62612"]);
+        case "ROU": return _svgVStripes(["#002b7f", "#fcd116", "#ce1126"]);
+        case "IRL": return _svgVStripes(["#169b62", "#ffffff", "#ff883e"]);
+        case "CIV": return _svgVStripes(["#f77f00", "#ffffff", "#009e60"]);
+        case "NGA": return _svgVStripes(["#008751", "#ffffff", "#008751"]);
+        case "MLI": return _svgVStripes(["#14b53a", "#fcd116", "#ce1126"]);
+        case "GUI": return _svgVStripes(["#ce1126", "#fcd116", "#009460"]);
+        case "PER": return _svgVStripes(["#d91023", "#ffffff", "#d91023"]);
+        case "BOL": return _svgHStripes(["#d52b1e", "#f9e300", "#007934"]);
+        case "COL": return _svgHStripes(["#fcd116", "#003893", "#ce1126"], [2, 1, 1]);
+        case "GAB": return _svgHStripes(["#009e60", "#fcd116", "#3a75c4"]);
+        case "CRC": return _svgHStripes(["#002b7f", "#ffffff", "#ce1126", "#ffffff", "#002b7f"], [1, 1, 2, 1, 1]);
+        case "THA": return _svgHStripes(["#a51931", "#ffffff", "#2d2a4a", "#ffffff", "#a51931"], [1, 1, 2, 1, 1]);
+
+        // --- CROSSES & SALTIRES ---
+        case "ENG":
+            return `<rect width="60" height="40" fill="#ffffff"/><rect x="26" y="0" width="8" height="40" fill="#cf081f"/><rect x="0" y="16" width="60" height="8" fill="#cf081f"/>`;
+        case "SUI":
+            return `<rect width="60" height="40" fill="#da291c"/><rect x="25.5" y="8" width="9" height="24" fill="#ffffff"/><rect x="18" y="15.5" width="24" height="9" fill="#ffffff"/>`;
+        case "SCO":
+            return `<rect width="60" height="40" fill="#005eb8"/><path d="M0,0 L60,40 M60,0 L0,40" stroke="#ffffff" stroke-width="7.8"/>`;
+        case "DEN": return _svgNordic("#c8102e", "#ffffff");
+        case "SWE": return _svgNordic("#006aa7", "#fecc02");
+        case "FIN": return _svgNordic("#ffffff", "#003580");
+        case "NOR": return _svgNordic("#ba0c2f", "#00205b", "#ffffff");
+        case "ISL": return _svgNordic("#02529c", "#dc1e35", "#ffffff");
+        case "GEO": {
+            const sm = (x, y) => `<rect x="${x - 1.2}" y="${y - 3.6}" width="2.4" height="7.2" fill="#ff0000"/><rect x="${x - 3.6}" y="${y - 1.2}" width="7.2" height="2.4" fill="#ff0000"/>`;
+            return `<rect width="60" height="40" fill="#ffffff"/><rect x="26" y="0" width="8" height="40" fill="#ff0000"/><rect x="0" y="16" width="60" height="8" fill="#ff0000"/>` +
+                sm(13, 8) + sm(47, 8) + sm(13, 32) + sm(47, 32);
         }
-    }
+        case "NIR":
+            return `<rect width="60" height="40" fill="#ffffff"/><rect x="26" y="0" width="8" height="40" fill="#cf081f"/><rect x="0" y="16" width="60" height="8" fill="#cf081f"/>` +
+                _svgStar(30, 20, 7.2, "#ffffff", 6, 0.56, -90, "#cf081f", 0.6) +
+                `<rect x="28.3" y="17.8" width="3.4" height="4.4" rx="1" fill="#cf081f"/><rect x="27.5" y="10.2" width="5" height="2.5" rx="0.6" fill="#facc15"/>`;
+        case "JAM":
+            return `<rect width="60" height="40" fill="#009b3a"/><polygon points="0,0 30,20 0,40" fill="#000000"/><polygon points="60,0 30,20 60,40" fill="#000000"/><path d="M0,0 L60,40 M60,0 L0,40" stroke="#fed100" stroke-width="6.8"/>`;
 
-    return `<svg width="${w}" height="${h}" viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg" class="block w-full h-full object-cover">${body}</svg>`;
+        // --- AMERICAS ---
+        case "ARG":
+            return _svgHStripes(["#74acdf", "#ffffff", "#74acdf"]) + _svgSun(30, 20, 4.1, "#f6b40e", 12);
+        case "BRA":
+            return `<rect width="60" height="40" fill="#009c3b"/><polygon points="30,4 55,20 30,36 5,20" fill="#ffdf00"/><circle cx="30" cy="20" r="8.6" fill="#002776"/><path d="M21.8,18.2 Q30,15.5 38.2,21.8" fill="none" stroke="#ffffff" stroke-width="1.9"/><circle cx="27" cy="23.5" r="0.7" fill="#ffffff"/><circle cx="30" cy="24.5" r="0.7" fill="#ffffff"/><circle cx="33" cy="23.2" r="0.7" fill="#ffffff"/>`;
+        case "URU": {
+            let out = _svgHStripes(["#ffffff", "#0038a8", "#ffffff", "#0038a8", "#ffffff", "#0038a8", "#ffffff", "#0038a8", "#ffffff"]);
+            out += `<rect x="0" y="0" width="22.2" height="22.2" fill="#ffffff"/>` + _svgSun(11.1, 11.1, 4.8, "#fcd116", 12);
+            return out;
+        }
+        case "USA": {
+            const st = [];
+            for (let i = 0; i < 13; i++) st.push(i % 2 === 0 ? "#b22234" : "#ffffff");
+            let out = _svgHStripes(st) + `<rect x="0" y="0" width="25" height="21.6" fill="#3c3b6e"/>`;
+            for (let r = 0; r < 5; r++) {
+                const cols = (r % 2 === 0) ? 5 : 4;
+                const xStart = (r % 2 === 0) ? 3.2 : 5.4;
+                for (let c = 0; c < cols; c++) {
+                    out += `<circle cx="${(xStart + c * 4.6).toFixed(1)}" cy="${(3.0 + r * 3.9).toFixed(1)}" r="0.95" fill="#ffffff"/>`;
+                }
+            }
+            return out;
+        }
+        case "CAN":
+            return _svgVStripes(["#d80621", "#ffffff", "#d80621"], [1, 2, 1]) +
+                `<path d="M30,8.5 L31.6,13.2 L35.2,12.2 L33.8,16.4 L37.8,15.8 L36.6,18.2 L39.2,19.4 L34.6,23.2 L35.4,25.4 L30.8,24.6 L30.8,31.2 L29.2,31.2 L29.2,24.6 L24.6,25.4 L25.4,23.2 L20.8,19.4 L23.4,18.2 L22.2,15.8 L26.2,16.4 L24.8,12.2 L28.4,13.2 Z" fill="#d80621"/>`;
+        case "MEX":
+            return _svgVStripes(["#006847", "#ffffff", "#ce1126"]) +
+                `<ellipse cx="30" cy="20.2" rx="4.2" ry="3.8" fill="#8b5a2b"/><path d="M26.2,22.8 Q30,26 33.8,22.8" fill="none" stroke="#006847" stroke-width="1.6"/><circle cx="30" cy="18.6" r="1.4" fill="#d97706"/>`;
+        case "CHI":
+            return _svgHStripes(["#ffffff", "#d52b1e"]) + `<rect x="0" y="0" width="20" height="20" fill="#0039a6"/>` + _svgStar(10, 10, 5.2, "#ffffff");
+        case "ECU":
+            return _svgHStripes(["#ffdd00", "#034ea2", "#ed1c24"], [2, 1, 1]) +
+                `<ellipse cx="30" cy="20" rx="4.2" ry="5.2" fill="#38bdf8" stroke="#ca8a04" stroke-width="1.4"/><path d="M26.5,21.5 L30,17 L33.5,21.5 Z" fill="#15803d"/><path d="M25.5,14.8 Q30,12.5 34.5,14.8" fill="none" stroke="#1e293b" stroke-width="1.6"/>`;
+        case "PAR":
+            return _svgHStripes(["#d52b1e", "#ffffff", "#0038a8"]) +
+                `<circle cx="30" cy="20" r="4.8" fill="none" stroke="#15803d" stroke-width="1.3"/>` + _svgStar(30, 20, 2.7, "#facc15");
+        case "VEN": {
+            let out = _svgHStripes(["#ffcc00", "#00247d", "#cf142b"]);
+            for (let i = 0; i < 8; i++) {
+                const a = Math.PI + 0.42 + (i / 7) * (Math.PI - 0.84);
+                out += _svgStar(30 + Math.cos(a) * 11, 25.5 + Math.sin(a) * 8.5, 1.55, "#ffffff");
+            }
+            return out;
+        }
+        case "PAN":
+            return `<rect x="0" y="0" width="30" height="20" fill="#ffffff"/><rect x="30" y="0" width="30" height="20" fill="#da121a"/><rect x="0" y="20" width="30" height="20" fill="#072357"/><rect x="30" y="20" width="30" height="20" fill="#ffffff"/>` +
+                _svgStar(15, 10, 4.8, "#072357") + _svgStar(45, 30, 4.8, "#da121a");
+        case "HON":
+            return _svgHStripes(["#00bce4", "#ffffff", "#00bce4"]) +
+                _svgStar(30, 20, 2.1, "#00bce4") + _svgStar(22, 16.5, 2.0, "#00bce4") + _svgStar(22, 23.5, 2.0, "#00bce4") + _svgStar(38, 16.5, 2.0, "#00bce4") + _svgStar(38, 23.5, 2.0, "#00bce4");
+        case "SLV":
+            return _svgHStripes(["#0f47af", "#ffffff", "#0f47af"]) +
+                `<circle cx="30" cy="20" r="4.6" fill="none" stroke="#15803d" stroke-width="1.2"/><polygon points="30,16.5 33.4,22.5 26.6,22.5" fill="#facc15"/>`;
+
+        // --- EUROPE WITH EMBLEMS / SPECIAL GEOMETRY ---
+        case "ESP":
+            return _svgHStripes(["#aa151b", "#f1bf00", "#aa151b"], [1, 2, 1]) +
+                `<rect x="15.5" y="15" width="7.2" height="9.5" rx="2.5" fill="#aa151b" stroke="#f1bf00" stroke-width="0.9"/><rect x="16.5" y="16" width="2.5" height="4" fill="#f1bf00"/><rect x="19.3" y="20" width="2.5" height="3.5" fill="#1d4ed8"/><rect x="16.2" y="12.6" width="5.8" height="2.2" rx="0.8" fill="#d97706"/><rect x="13.5" y="15.5" width="1.2" height="8.5" fill="#e2e8f0"/><rect x="23.5" y="15.5" width="1.2" height="8.5" fill="#e2e8f0"/>`;
+        case "POR":
+            return _svgVStripes(["#006600", "#ff0000"], [2, 3]) +
+                `<circle cx="24" cy="20" r="7.2" fill="#facc15" stroke="#ca8a04" stroke-width="1"/><rect x="20.6" y="15.8" width="6.8" height="8.4" rx="2.4" fill="#dc2626"/><rect x="22" y="17.2" width="4" height="5.4" rx="1.2" fill="#ffffff"/><circle cx="24" cy="19.9" r="1.2" fill="#1d4ed8"/>`;
+        case "CRO":
+            return _svgHStripes(["#ff0000", "#ffffff", "#171796"]) +
+                `<rect x="25.2" y="14.5" width="9.6" height="10.8" rx="2.8" fill="#ffffff" stroke="#171796" stroke-width="0.8"/>` +
+                `<rect x="25.6" y="15" width="3" height="3" fill="#ff0000"/><rect x="31.4" y="15" width="3" height="3" fill="#ff0000"/><rect x="28.5" y="18" width="3" height="3" fill="#ff0000"/><rect x="25.6" y="21" width="3" height="3" fill="#ff0000"/><rect x="31.4" y="21" width="3" height="3" fill="#ff0000"/>` +
+                `<path d="M25.5,14.5 L27,11.8 L30,13.4 L33,11.8 L34.5,14.5 Z" fill="#171796"/>`;
+        case "CZE":
+            return _svgHStripes(["#ffffff", "#d7141a"]) + `<polygon points="0,0 30,20 0,40" fill="#11457e"/>`;
+        case "SRB":
+            return _svgHStripes(["#c6363c", "#0c4076", "#ffffff"]) +
+                `<rect x="17.5" y="13.5" width="7.8" height="11.2" rx="3" fill="#c6363c" stroke="#facc15" stroke-width="0.9"/><path d="M19,17 L23.8,17 L21.4,22.5 Z" fill="#ffffff"/><rect x="18.6" y="10.8" width="5.6" height="2.4" rx="0.8" fill="#facc15"/>`;
+        case "SVK":
+            return _svgHStripes(["#ffffff", "#0b4ea2", "#ee1c25"]) +
+                `<rect x="15.5" y="13" width="8.5" height="12.5" rx="3.4" fill="#ee1c25" stroke="#ffffff" stroke-width="1"/><path d="M16.2,22.2 Q19.7,19.8 23.3,22.2 L23.3,24.8 L16.2,24.8 Z" fill="#0b4ea2"/><rect x="19" y="14.6" width="1.5" height="7.5" fill="#ffffff"/><rect x="17.3" y="16.2" width="4.9" height="1.3" fill="#ffffff"/><rect x="16.8" y="18.4" width="5.9" height="1.3" fill="#ffffff"/>`;
+        case "SVN":
+            return _svgHStripes(["#ffffff", "#005da4", "#ed1c24"]) +
+                `<rect x="12" y="9" width="7.2" height="9.2" rx="2.8" fill="#005da4" stroke="#ed1c24" stroke-width="0.9"/><polygon points="12.8,16.8 14.3,13.5 15.6,15 16.9,13.5 18.4,16.8" fill="#ffffff"/><circle cx="15.6" cy="11.2" r="0.8" fill="#facc15"/><circle cx="14.2" cy="12.5" r="0.7" fill="#facc15"/><circle cx="17" cy="12.5" r="0.7" fill="#facc15"/>`;
+        case "GRE": {
+            const st = [];
+            for (let i = 0; i < 9; i++) st.push(i % 2 === 0 ? "#0d5eaf" : "#ffffff");
+            return _svgHStripes(st) +
+                `<rect x="0" y="0" width="22.2" height="22.2" fill="#0d5eaf"/><rect x="8.9" y="0" width="4.4" height="22.2" fill="#ffffff"/><rect x="0" y="8.9" width="22.2" height="4.4" fill="#ffffff"/>`;
+        }
+        case "WAL":
+            return _svgHStripes(["#ffffff", "#00ab39"]) +
+                `<path d="M17,28 L22,23 L20,16 L26,12 L33,13 L39,9 L37,16 L43,19 L39,23 L43,29 L37,26 L33,29 L30,24 L25,29 L23,25 Z" fill="#d30731" stroke="#881337" stroke-width="0.6"/>`;
+        case "ALB":
+            return `<rect width="60" height="40" fill="#e41e20"/>` +
+                `<path d="M30,11 L27,13 L23,12 L25,16 L20,17 L24,20 L21,23 L26,23 L24,29 L28,27 L30,30 L32,27 L36,29 L34,23 L39,23 L36,20 L40,17 L35,16 L37,12 L33,13 Z" fill="#000000"/>`;
+        case "MKD":
+            return `<rect width="60" height="40" fill="#d20000"/>` +
+                `<polygon points="0,0 10,0 30,20 0,8" fill="#ffe600"/><polygon points="60,0 50,0 30,20 60,8" fill="#ffe600"/>` +
+                `<polygon points="0,40 10,40 30,20 0,32" fill="#ffe600"/><polygon points="60,40 50,40 30,20 60,32" fill="#ffe600"/>` +
+                `<polygon points="26,0 34,0 30,20" fill="#ffe600"/><polygon points="26,40 34,40 30,20" fill="#ffe600"/>` +
+                `<polygon points="0,16 0,24 30,20" fill="#ffe600"/><polygon points="60,16 60,24 30,20" fill="#ffe600"/>` +
+                `<circle cx="30" cy="20" r="6.8" fill="#ffe600" stroke="#d20000" stroke-width="1.6"/>`;
+        case "BIH": {
+            let out = `<rect width="60" height="40" fill="#002395"/><polygon points="16,0 44,0 44,40" fill="#fecb00"/>`;
+            for (let i = 0; i < 7; i++) {
+                out += _svgStar(12.2 + i * 4.5, 2.2 + i * 6.0, 2.2, "#ffffff");
+            }
+            return out;
+        }
+        case "MNE":
+            return `<rect width="60" height="40" fill="#c40308"/><rect x="2.2" y="2.2" width="55.6" height="35.6" fill="none" stroke="#d4af37" stroke-width="2.4"/>` +
+                `<path d="M30,11 L26,14 L21,13 L23,19 L21,25 L26,24 L27,29 L30,27 L33,29 L34,24 L39,25 L37,19 L39,13 L34,14 Z" fill="#d4af37"/><rect x="27.5" y="17.5" width="5" height="6" rx="1.5" fill="#1d4ed8"/><rect x="27.5" y="21.5" width="5" height="2" fill="#16a34a"/>`;
+        case "TUR":
+            return `<rect width="60" height="40" fill="#e30a17"/>` + _svgCrescent(23, 20, 8.8, "#ffffff", "#e30a17", 2.5) + _svgStar(34.5, 20, 4.3, "#ffffff", 5, 0.39, -18);
+        case "ISR":
+            return `<rect width="60" height="40" fill="#ffffff"/><rect x="0" y="4" width="60" height="4.8" fill="#0038b8"/><rect x="0" y="31.2" width="60" height="4.8" fill="#0038b8"/>` +
+                `<polygon points="30,12.2 36.8,23.9 23.2,23.9" fill="none" stroke="#0038b8" stroke-width="1.5"/><polygon points="30,27.8 36.8,16.1 23.2,16.1" fill="none" stroke="#0038b8" stroke-width="1.5"/>`;
+
+        // --- AFRICA ---
+        case "MAR":
+            return `<rect width="60" height="40" fill="#c1272d"/>` + _svgStar(30, 20, 8.2, "none", 5, 0.38, -90, "#006233", 1.7);
+        case "SEN":
+            return _svgVStripes(["#00853f", "#fdef42", "#e31b23"]) + _svgStar(30, 20, 5.2, "#00853f");
+        case "EGY":
+            return _svgHStripes(["#ce1126", "#ffffff", "#000000"]) +
+                `<path d="M30,15.5 L26.5,17.2 L27.3,23.2 L30,24.5 L32.7,23.2 L33.5,17.2 Z" fill="#c09300"/>`;
+        case "ALG":
+            return `<rect x="0" y="0" width="30" height="40" fill="#006233"/><rect x="30" y="0" width="30" height="40" fill="#ffffff"/>` +
+                `<path d="M34.6,14.2 A8.2,8.2 0 1,0 34.6,25.8 A6.6,6.6 0 1,1 34.6,14.2 Z" fill="#d21034"/>` +
+                _svgStar(33.4, 20, 3.6, "#d21034", 5, 0.4, -18);
+        case "GHA":
+            return _svgHStripes(["#cf0921", "#fcd116", "#006b3f"]) + _svgStar(30, 20, 5.2, "#000000");
+        case "CMR":
+            return _svgVStripes(["#007a5e", "#ce1126", "#fcd116"]) + _svgStar(30, 20, 5.0, "#fcd116");
+        case "TUN":
+            return `<rect width="60" height="40" fill="#e70013"/><circle cx="30" cy="20" r="10" fill="#ffffff"/>` +
+                _svgCrescent(29.5, 20, 6.4, "#e70013", "#ffffff", 1.9) + _svgStar(32.5, 20, 3.0, "#e70013", 5, 0.4, -18);
+        case "RSA":
+            return `<rect x="0" y="0" width="60" height="20" fill="#e03c31"/><rect x="0" y="20" width="60" height="20" fill="#001489"/>` +
+                `<polygon points="0,0 9,0 28,14 60,14 60,26 28,26 9,40 0,40" fill="#ffffff"/>` +
+                `<polygon points="0,0 5,0 26.5,16 60,16 60,24 26.5,24 5,40 0,40" fill="#007749"/>` +
+                `<polygon points="0,5 20,20 0,35" fill="#ffb81c"/><polygon points="0,9 15,20 0,31" fill="#000000"/>`;
+        case "COD":
+            return `<rect width="60" height="40" fill="#007fff"/><path d="M-4,42 L64,-2" stroke="#f7d618" stroke-width="11.5"/><path d="M-4,42 L64,-2" stroke="#ce1021" stroke-width="7.8"/>` + _svgStar(10.5, 9.5, 5.2, "#f7d618");
+        case "BFA":
+            return _svgHStripes(["#ef2b2d", "#009e49"]) + _svgStar(30, 20, 5.5, "#fcd116");
+        case "CPV": {
+            let out = `<rect width="60" height="40" fill="#003893"/><rect x="0" y="21" width="60" height="3" fill="#ffffff"/><rect x="0" y="24" width="60" height="3" fill="#cf2027"/><rect x="0" y="27" width="60" height="3" fill="#ffffff"/>`;
+            for (let i = 0; i < 10; i++) {
+                const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+                out += _svgStar(22.5 + Math.cos(a) * 8.6, 25.5 + Math.sin(a) * 8.6, 1.55, "#f7d116");
+            }
+            return out;
+        }
+        case "ZAM":
+            return `<rect width="60" height="40" fill="#198a00"/><rect x="42" y="18" width="6" height="22" fill="#de2010"/><rect x="48" y="18" width="6" height="22" fill="#000000"/><rect x="54" y="18" width="6" height="22" fill="#ef7d00"/>` +
+                `<path d="M44,11 Q51,7 58,11 Q54,13 51,14 Q48,13 44,11 Z" fill="#ef7d00"/>`;
+        case "ANG":
+            return _svgHStripes(["#cc092f", "#000000"]) +
+                `<path d="M30,11.5 A8.5,8.5 0 0,1 30,28.5" fill="none" stroke="#ffcb00" stroke-width="2.4" stroke-dasharray="2.4,1.2"/>` +
+                `<path d="M23,25 L35,17" stroke="#ffcb00" stroke-width="2.2"/>` + _svgStar(28.5, 19.5, 2.8, "#ffcb00");
+
+        // --- ASIA & OCEANIA ---
+        case "JPN":
+            return `<rect width="60" height="40" fill="#ffffff"/><circle cx="30" cy="20" r="11" fill="#bc002d"/>`;
+        case "KOR": {
+            const trigram = (x, y, ang, brokenMask) => {
+                let g = `<g transform="translate(${x},${y}) rotate(${ang})">`;
+                for (let i = 0; i < 3; i++) {
+                    const yy = (i - 1) * 2.5;
+                    if (brokenMask & (1 << i)) {
+                        g += `<rect x="-4.5" y="${yy - 0.7}" width="4" height="1.4" fill="#000000"/><rect x="0.5" y="${yy - 0.7}" width="4" height="1.4" fill="#000000"/>`;
+                    } else {
+                        g += `<rect x="-4.5" y="${yy - 0.7}" width="9" height="1.4" fill="#000000"/>`;
+                    }
+                }
+                return g + `</g>`;
+            };
+            return `<rect width="60" height="40" fill="#ffffff"/>` +
+                `<g transform="translate(30,20) rotate(-32)"><circle r="8.5" fill="#cd2e3a"/><path d="M-8.5,0 A8.5,8.5 0 0,0 8.5,0 A4.25,4.25 0 0,0 0,0 A4.25,4.25 0 0,1 -8.5,0 Z" fill="#0047a0"/></g>` +
+                trigram(13, 10, -56, 0) + trigram(47, 10, 56, 5) + trigram(13, 30, 56, 2) + trigram(47, 30, -56, 7);
+        }
+        case "CHN":
+            return `<rect width="60" height="40" fill="#de2910"/>` +
+                _svgStar(10.5, 10.5, 5.2, "#ffde00") +
+                _svgStar(19.5, 5.2, 1.8, "#ffde00") + _svgStar(22.5, 9.2, 1.8, "#ffde00") +
+                _svgStar(22.5, 14.2, 1.8, "#ffde00") + _svgStar(19.5, 18.2, 1.8, "#ffde00");
+        case "VIE":
+            return `<rect width="60" height="40" fill="#da251d"/>` + _svgStar(30, 20, 10.5, "#ffff00");
+        case "IND": {
+            let spokes = "";
+            for (let i = 0; i < 12; i++) {
+                const a = (i / 12) * Math.PI * 2;
+                spokes += `<line x1="${(30 - Math.cos(a) * 4.5).toFixed(1)}" y1="${(20 - Math.sin(a) * 4.5).toFixed(1)}" x2="${(30 + Math.cos(a) * 4.5).toFixed(1)}" y2="${(20 + Math.sin(a) * 4.5).toFixed(1)}" stroke="#000080" stroke-width="0.65"/>`;
+            }
+            return _svgHStripes(["#ff9933", "#ffffff", "#138808"]) + `<circle cx="30" cy="20" r="4.8" fill="none" stroke="#000080" stroke-width="1.1"/>` + spokes;
+        }
+        case "IRN":
+            return _svgHStripes(["#239f40", "#ffffff", "#da0000"]) +
+                `<path d="M27,16.5 C25,19 25.5,22.5 29,23.5 M33,16.5 C35,19 34.5,22.5 31,23.5 M30,15.5 L30,24" fill="none" stroke="#da0000" stroke-width="1.35"/>`;
+        case "IRQ":
+            return _svgHStripes(["#ce1126", "#ffffff", "#000000"]) +
+                `<path d="M18,21.5 L25,21.5 M27,21.5 L33,21.5 M35,21.5 L42,21.5 M21,18.2 L21,21.5 M30,18.2 L30,21.5 M39,18.2 L39,21.5" stroke="#007a3d" stroke-width="1.8" stroke-linecap="round"/>`;
+        case "KSA":
+            return `<rect width="60" height="40" fill="#006c35"/>` +
+                `<path d="M14,16 Q22,13 30,16 Q38,13 46,16 M17,20 Q30,18 43,20" fill="none" stroke="#ffffff" stroke-width="2.1" stroke-linecap="round"/>` +
+                `<line x1="15" y1="26.5" x2="44" y2="26.5" stroke="#ffffff" stroke-width="1.8"/><rect x="41" y="24.2" width="1.6" height="4.6" fill="#ffffff"/>`;
+        case "QAT": {
+            let pts = "0,0 18,0 ";
+            for (let i = 0; i < 9; i++) {
+                const y1 = (i * 40 / 9) + (20 / 9);
+                const y2 = ((i + 1) * 40 / 9);
+                pts += `23,${y1.toFixed(2)} 18,${y2.toFixed(2)} `;
+            }
+            pts += "0,40";
+            return `<rect width="60" height="40" fill="#8d1b3d"/><polygon points="${pts}" fill="#ffffff"/>`;
+        }
+        case "UAE":
+            return _svgHStripes(["#00732f", "#ffffff", "#000000"]) + `<rect x="0" y="0" width="15" height="40" fill="#ff0000"/>`;
+        case "JOR":
+            return _svgHStripes(["#000000", "#ffffff", "#007a3d"]) + `<polygon points="0,0 28,20 0,40" fill="#ce1126"/>` + _svgStar(9.5, 20, 3.0, "#ffffff", 7, 0.45);
+        case "UZB":
+            return `<rect x="0" y="0" width="60" height="12.5" fill="#0099b5"/><rect x="0" y="12.5" width="60" height="1.2" fill="#ce1126"/>` +
+                `<rect x="0" y="13.7" width="60" height="12.6" fill="#ffffff"/><rect x="0" y="26.3" width="60" height="1.2" fill="#ce1126"/>` +
+                `<rect x="0" y="27.5" width="60" height="12.5" fill="#1eb53a"/>` +
+                _svgCrescent(9, 6.2, 3.8, "#ffffff", "#0099b5", 1.3) +
+                `<circle cx="15.5" cy="9.2" r="0.8" fill="#ffffff"/><circle cx="18.5" cy="9.2" r="0.8" fill="#ffffff"/><circle cx="21.5" cy="9.2" r="0.8" fill="#ffffff"/><circle cx="18.5" cy="6.2" r="0.8" fill="#ffffff"/><circle cx="21.5" cy="6.2" r="0.8" fill="#ffffff"/><circle cx="21.5" cy="3.2" r="0.8" fill="#ffffff"/>`;
+        case "MAS": {
+            const st = [];
+            for (let i = 0; i < 14; i++) st.push(i % 2 === 0 ? "#cc0001" : "#ffffff");
+            return _svgHStripes(st) + `<rect x="0" y="0" width="30" height="22.9" fill="#010066"/>` +
+                _svgCrescent(11.5, 11.4, 6.2, "#ffcc00", "#010066", 1.9) + _svgStar(19.5, 11.4, 4.4, "#ffcc00", 14, 0.48);
+        }
+        case "AUS":
+            return `<rect width="60" height="40" fill="#00008b"/>` + _svgUnionJackCanton(30, 20) +
+                _svgStar(15, 30, 4.6, "#ffffff", 7, 0.46) +
+                _svgStar(45, 9, 2.2, "#ffffff", 7, 0.46) + _svgStar(38, 17.5, 2.2, "#ffffff", 7, 0.46) +
+                _svgStar(51.5, 16, 2.2, "#ffffff", 7, 0.46) + _svgStar(45, 31.5, 2.4, "#ffffff", 7, 0.46) +
+                _svgStar(48.2, 23, 1.3, "#ffffff", 5, 0.45);
+        case "NZL":
+            return `<rect width="60" height="40" fill="#00247d"/>` + _svgUnionJackCanton(30, 20) +
+                _svgStar(45, 9, 2.4, "#cc142b", 5, 0.4, -90, "#ffffff", 0.7) +
+                _svgStar(38.5, 18.5, 2.4, "#cc142b", 5, 0.4, -90, "#ffffff", 0.7) +
+                _svgStar(51.5, 16.5, 2.2, "#cc142b", 5, 0.4, -90, "#ffffff", 0.7) +
+                _svgStar(45, 31, 2.8, "#cc142b", 5, 0.4, -90, "#ffffff", 0.7);
+        default:
+            return _svgHStripes(["#1d4ed8", "#ffffff", "#dc2626"]);
+    }
+}
+
+function renderFlagSVG(team, w = 48, h = 32) {
+    const code = (team && team.code) ? team.code : "FRA";
+    const body = getAccurateFlagBody(code);
+    return `<svg width="${w}" height="${h}" viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg" style="overflow:hidden" class="block w-full h-full object-cover">${body}</svg>`;
 }
 
 // Detect color clashes between Home and Away primary kit colors
@@ -2451,13 +2785,16 @@ function createHumanPlayerMesh(teamIdx, team, pData, isGK) {
         wristTape.position.y = -0.26;
         elbow.add(wristTape);
 
-        const hand = new THREE.Mesh(new THREE.SphereGeometry(0.062, 10, 10), isGK ? new THREE.MeshStandardMaterial({ color: 0xffffff }) : skinMat);
-        hand.scale.set(1.1, 1.25, 0.75);
+        const hand = new THREE.Mesh(
+            new THREE.SphereGeometry(isGK ? 0.072 : 0.062, 10, 10),
+            isGK ? new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.42 }) : skinMat
+        );
+        hand.scale.set(isGK ? 1.25 : 1.1, isGK ? 1.35 : 1.25, isGK ? 0.88 : 0.75);
         hand.position.y = -0.32;
         elbow.add(hand);
 
         spineGroup.add(shoulder);
-        return { shoulder, elbow };
+        return { shoulder, elbow, hand };
     }
     const leftArm = makeHumanArm(-0.34);
     const rightArm = makeHumanArm(0.34);
@@ -2635,10 +2972,19 @@ function spawnMatchSquads() {
                 kickAnimTimer: 0,
                 stumbleTimer: 0,
                 diveTimer: 0,
-                diveDuration: 0.62,
+                diveDuration: 0.72,
                 diveDirZ: 0,
                 diveTargetY: 1.2,
                 diveCommitted: false,
+                gkDiveSide: 1,
+                gkHoldingBall: false,
+                gkCatchBlend: 0,
+                caughtDuringDive: false,
+                gkGetUpTimer: 0,
+                gkGetUpDuration: 0.78,
+                gkScoopTimer: 0,
+                holdTimer: 0,
+                aiDecisionCooldown: 0,
                 animPhase: Math.random() * Math.PI * 2,
                 mesh
             });
@@ -2682,6 +3028,12 @@ function recordReplayFrame(isAfterGoalLine) {
             diveDuration: p.diveDuration,
             diveDirZ: p.diveDirZ,
             diveTargetY: p.diveTargetY,
+            gkDiveSide: p.gkDiveSide,
+            gkHoldingBall: p.gkHoldingBall,
+            gkCatchBlend: p.gkCatchBlend,
+            gkGetUpTimer: p.gkGetUpTimer,
+            gkGetUpDuration: p.gkGetUpDuration,
+            gkScoopTimer: p.gkScoopTimer,
             animPhase: p.animPhase
         };
     }
@@ -2790,6 +3142,14 @@ function resetPositionsForKickoff(kickingTeamIdx) {
         p.stumbleTimer = 0;
         p.diveTimer = 0;
         p.diveCommitted = false;
+        p.gkDiveSide = 1;
+        p.gkHoldingBall = false;
+        p.gkCatchBlend = 0;
+        p.caughtDuringDive = false;
+        p.gkGetUpTimer = 0;
+        p.gkScoopTimer = 0;
+        p.holdTimer = 0;
+        p.aiDecisionCooldown = 0;
         p.facing = (p.teamIdx === 0) ? 0 : Math.PI;
 
         // Keep all players of the opponent team strictly outside the center circle on kick-off
@@ -3152,6 +3512,16 @@ function executeKick(kicker, actionType, rawPower) {
         kicker.facing = Math.atan2(inp.z, inp.x);
     }
 
+    // Track if goalkeeper is releasing a caught ball from his hands
+    const wasGkHandRelease = !!(kicker.isGK && kicker.gkHoldingBall);
+    if (wasGkHandRelease) {
+        kicker.gkHoldingBall = false;
+        kicker.caughtDuringDive = false;
+        kicker.gkCatchBlend = 0;
+        kicker.gkScoopTimer = 0;
+        kicker.holdTimer = 0;
+    }
+
     // Detach ball cleanly and set anti-self-reclaim timers so kicker doesn't re-grab it on the same frame!
     BALL.owner = null;
     BALL.lastKicker = kicker;
@@ -3201,10 +3571,10 @@ function executeKick(kicker, actionType, rawPower) {
         kicker.facing = launchAngle;
         BALL.x = kicker.x + Math.cos(launchAngle) * 1.05;
         BALL.z = kicker.z + Math.sin(launchAngle) * 1.05;
-        BALL.y = wasThrowIn ? 1.45 : 0.28;
+        BALL.y = wasThrowIn ? 1.45 : (wasGkHandRelease ? 0.95 : 0.28);
         BALL.vx = Math.cos(launchAngle) * speed;
         BALL.vz = Math.sin(launchAngle) * speed;
-        BALL.vy = wasThrowIn ? 2.2 : ((actionType === 'THROUGH') ? 1.15 : 0.65);
+        BALL.vy = wasThrowIn ? 2.2 : (wasGkHandRelease ? 2.6 : ((actionType === 'THROUGH') ? 1.15 : 0.65));
     } else if (actionType === 'CROSS') {
         BALL.isShot = false;
         MATCH.stats.passes[kicker.teamIdx]++;
@@ -3489,6 +3859,12 @@ function updateGoalReplay(dt) {
         p.diveDuration = pA.diveDuration;
         p.diveDirZ = pA.diveDirZ;
         p.diveTargetY = pA.diveTargetY;
+        p.gkDiveSide = (pA.gkDiveSide !== undefined) ? pA.gkDiveSide : 1;
+        p.gkHoldingBall = !!pA.gkHoldingBall;
+        p.gkCatchBlend = (pA.gkCatchBlend || 0) + ((pB.gkCatchBlend || 0) - (pA.gkCatchBlend || 0)) * alpha;
+        p.gkGetUpTimer = (pA.gkGetUpTimer || 0) + ((pB.gkGetUpTimer || 0) - (pA.gkGetUpTimer || 0)) * alpha;
+        p.gkGetUpDuration = pA.gkGetUpDuration || 0.78;
+        p.gkScoopTimer = (pA.gkScoopTimer || 0) + ((pB.gkScoopTimer || 0) - (pA.gkScoopTimer || 0)) * alpha;
         p.animPhase = pA.animPhase + (pB.animPhase - pA.animPhase) * alpha;
 
         syncPlayer3D(p, 0);
@@ -3530,11 +3906,21 @@ function updateSimulation(dt) {
 
     if (MATCH.state === 'GOAL_CELEBRATION') {
         MATCH.goalTimer -= dt;
-        // Keep updating goalkeeper dive & player momentum during live goal celebration
+        // Keep updating goalkeeper dive landing, stand-up recovery & player momentum during live goal celebration
         players.forEach(p => {
             if (p.diveTimer > 0) {
+                const prevDive = p.diveTimer;
                 p.diveTimer = Math.max(0, p.diveTimer - dt);
-                p.z += (p.diveDirZ || 0) * 4.5 * dt;
+                const progress = 1 - (p.diveTimer / (p.diveDuration || 0.72));
+                const skidFactor = progress < 0.65 ? 1.0 : Math.max(0, 1 - (progress - 0.65) / 0.35);
+                p.z += (p.diveDirZ || 0) * 4.8 * skidFactor * dt;
+                if (prevDive > 0 && p.diveTimer === 0 && p.isGK) {
+                    p.gkGetUpDuration = 0.72;
+                    p.gkGetUpTimer = p.gkGetUpDuration;
+                }
+            } else if (p.gkGetUpTimer > 0) {
+                p.gkGetUpTimer = Math.max(0, p.gkGetUpTimer - dt);
+                p.vx = 0; p.vz = 0;
             } else {
                 p.vx *= Math.pow(0.25, dt);
                 p.vz *= Math.pow(0.25, dt);
@@ -3644,6 +4030,7 @@ function updateSimulation(dt) {
     }
 
     const inp = getPlayerInputVector();
+    computeTeamTacticsContext();
 
     players.forEach(p => {
         const isUser0 = (p === controlledPlayer[0]);
@@ -3758,8 +4145,8 @@ function updateSimulation(dt) {
         p.x = Math.max(-PITCH_W / 2 - 1, Math.min(PITCH_W / 2 + 1, p.x + p.vx * dt));
         p.z = Math.max(-PITCH_H / 2 - 1, Math.min(PITCH_H / 2 + 1, p.z + p.vz * dt));
 
-        // Loose Ball Pickup (Guarded by pickupCooldown, kickIgnoreTimer, and stumbleTimer)
-        if (!BALL.owner && BALL.pickupCooldown <= 0 && BALL.y < 1.55 && p.stumbleTimer <= 0) {
+        // Loose Ball Pickup (Guarded by pickupCooldown, kickIgnoreTimer, stumbleTimer, and GK stand-up)
+        if (!BALL.owner && BALL.pickupCooldown <= 0 && BALL.y < 1.55 && p.stumbleTimer <= 0 && (!p.isGK || (p.gkGetUpTimer <= 0.2 && p.diveTimer <= 0))) {
             const isIgnoredKicker = (p === BALL.lastKicker && BALL.kickIgnoreTimer > 0);
             if (!isIgnoredKicker) {
                 const pickupRadius = (p === BALL.passTarget) ? 1.42 : 1.12;
@@ -3770,6 +4157,13 @@ function updateSimulation(dt) {
                     BALL.passTarget = null;
                     BALL.passAssistTimer = 0;
                     BALL.lastTouchTeam = p.teamIdx;
+                    if (p.isGK) {
+                        p.gkHoldingBall = true;
+                        p.gkCatchBlend = 1.0;
+                        p.caughtDuringDive = false;
+                        p.gkScoopTimer = BALL.y < 0.8 ? 0.30 : 0;
+                        p.holdTimer = 1.05;
+                    }
                     if (p.teamIdx === 0 && !p.isGK) controlledPlayer[0] = p;
                     if (p.teamIdx === 1 && !p.isGK) controlledPlayer[1] = p;
                 }
@@ -3855,69 +4249,190 @@ function setCameraMode(mode) {
 function updateGoalkeeperAI(gk, dt) {
     const sideSign = (gk.teamIdx === 0) ? 1 : -1;
     const goalX = -sideSign * (PITCH_W / 2 - 1.1);
+    const baseFacing = (gk.teamIdx === 0) ? 0 : Math.PI;
 
+    if (gk.gkScoopTimer > 0) {
+        gk.gkScoopTimer = Math.max(0, gk.gkScoopTimer - dt);
+    }
+
+    // 0. Goalkeeper Holding Caught Ball in Hands (finishes dive landing -> stands up -> distributes!)
     if (BALL.owner === gk) {
-        gk.vx = 0; gk.vz = 0;
-        gk.diveTimer = 0;
+        gk.gkHoldingBall = true;
+        gk.gkCatchBlend = Math.min(1, (gk.gkCatchBlend || 0) + dt * 6.5);
+
+        // Give keeper clear breathing room in the box while holding/recovering
         players.forEach(op => {
-            if (op.teamIdx !== gk.teamIdx && Math.abs(op.x - goalX) < 15) {
-                op.x += sideSign * 10 * dt;
+            if (op.teamIdx !== gk.teamIdx && Math.abs(op.x - goalX) < 14.5) {
+                op.x += sideSign * 9.5 * dt;
             }
         });
-        if (!gk.holdTimer) gk.holdTimer = 1.1;
+
+        // Sub-phase A: Caught during a dive — smoothly finish landing & turf skid while cradling ball!
+        if (gk.diveTimer > 0) {
+            const prevDive = gk.diveTimer;
+            gk.diveTimer = Math.max(0, gk.diveTimer - dt);
+            const progress = 1 - (gk.diveTimer / (gk.diveDuration || 0.72));
+            const skid = progress < 0.65 ? 0.55 : Math.max(0, 0.55 * (1 - (progress - 0.65) / 0.35));
+            gk.vx = (goalX - gk.x) * 1.4 * skid;
+            gk.vz = (gk.diveDirZ || 0) * Math.min(4.0, (gk.diveLateralSpeed || 6.5) * 0.42) * skid;
+            if (prevDive > 0 && gk.diveTimer === 0 && gk.caughtDuringDive) {
+                gk.gkGetUpDuration = 0.86;
+                gk.gkGetUpTimer = gk.gkGetUpDuration;
+                gk.caughtDuringDive = false;
+            }
+            return;
+        }
+
+        // Sub-phase B: Standing up smoothly from the grass while keeping the ball held in both hands!
+        if (gk.gkGetUpTimer > 0) {
+            gk.gkGetUpTimer = Math.max(0, gk.gkGetUpTimer - dt);
+            gk.vx = 0;
+            gk.vz = 0;
+            return;
+        }
+
+        // Sub-phase C: Standing upright holding the ball in hands, stepping calmly forward before distributing
+        gk.facing = baseFacing;
+        const stepOutX = goalX + sideSign * 3.8;
+        const dxStep = stepOutX - gk.x;
+        if (Math.abs(dxStep) > 0.35 && (gk.holdTimer || 0) > 0.25) {
+            gk.vx = Math.sign(dxStep) * Math.min(2.1, Math.abs(dxStep) * 2.0);
+        } else {
+            gk.vx = 0;
+        }
+        gk.vz = -gk.z * 0.6;
+
+        if (!gk.holdTimer || gk.holdTimer <= 0) gk.holdTimer = 0.95;
         gk.holdTimer -= dt;
         if (gk.holdTimer <= 0) {
             gk.holdTimer = 0;
-            gk.facing = (gk.teamIdx === 0) ? 0 : Math.PI;
-            executeKick(gk, 'PASS', 0.65);
+            gk.vx = 0; gk.vz = 0;
+            gk.facing = baseFacing;
+            executeKick(gk, 'PASS', 0.68);
         }
         return;
     }
 
-    // Active Parabolic Acrobatic Dive State
+    // Clear hand-holding state when keeper does not own the ball
+    gk.gkHoldingBall = false;
+    gk.gkCatchBlend = 0;
+    gk.caughtDuringDive = false;
+
+    // 0b. Natural Stand-Up Recovery after a non-catch dive (parry or missed shot)
+    if (gk.gkGetUpTimer > 0) {
+        gk.gkGetUpTimer = Math.max(0, gk.gkGetUpTimer - dt);
+        gk.vx = 0;
+        gk.vz = 0;
+        return;
+    }
+
+    // 1. Active Natural Parabolic Dive State (Explosive Push-Off -> Airborne Extension -> Turf Landing Skid)
     if (gk.diveTimer > 0) {
+        const prevDive = gk.diveTimer;
         gk.diveTimer = Math.max(0, gk.diveTimer - dt);
-        gk.vx = (goalX - gk.x) * 5.0;
-        // Explosive lateral push across the goalmouth toward the predicted impact point
-        const diveSpeed = gk.diveLateralSpeed || 9.2;
-        gk.vz = gk.diveDirZ * diveSpeed * Math.pow(gk.diveTimer / gk.diveDuration, 0.55);
+        const progress = 1 - (gk.diveTimer / (gk.diveDuration || 0.72));
+
+        // Natural lateral velocity profile: push-off -> glide -> smooth grass friction skid
+        let velEnv;
+        if (progress < 0.14) {
+            velEnv = 0.45 + (progress / 0.14) * 0.65;
+        } else if (progress < 0.64) {
+            velEnv = 1.10 - ((progress - 0.14) / 0.50) * 0.42;
+        } else {
+            velEnv = Math.max(0, 0.68 * (1 - (progress - 0.64) / 0.36));
+        }
+
+        const diveSpeed = gk.diveLateralSpeed || 8.8;
+        gk.vx = (goalX - gk.x) * 3.8 * Math.max(0.15, velEnv);
+        gk.vz = gk.diveDirZ * diveSpeed * velEnv;
 
         // Dynamic hand-save check when the ball reaches the goalkeeper's plane
         if (BALL.isShot && !BALL.owner && gk.canSaveCurrentShot) {
             const dx = Math.abs(BALL.x - gk.x);
             const dz = Math.abs(BALL.z - gk.z);
-            if (dx < 1.45 && dz < gk.saveReachZ && BALL.y <= GOAL_H + 0.22) {
+            if (dx < 1.55 && dz < gk.saveReachZ && BALL.y <= GOAL_H + 0.25) {
                 MATCH.stats.saves[gk.teamIdx]++;
                 const shotSpd = Math.hypot(BALL.vx, BALL.vz);
                 const gkDiv = gk.data.div || gk.data.def || 85;
-                // High-DIV keepers can catch moderate shots cleanly; rocket shots are parried wide
-                if (shotSpd < 28.5 && Math.random() < (0.35 + (gkDiv - 80) * 0.015)) {
+                // High-DIV keepers catch moderate shots cleanly in hands, land & stand up; rockets are parried wide
+                if (shotSpd < 30.5 && Math.random() < (0.48 + (gkDiv - 80) * 0.016)) {
                     BALL.owner = gk;
                     BALL.isShot = false;
+                    BALL.passTarget = null;
+                    BALL.passAssistTimer = 0;
+                    BALL.lastTouchTeam = gk.teamIdx;
                     BALL.vx = 0; BALL.vz = 0; BALL.vy = 0;
-                    showEventBanner(`🧤 GREAT CATCH BY ${gk.data.name} (DIV ${gkDiv})!`, 2.0);
+                    gk.gkHoldingBall = true;
+                    gk.caughtDuringDive = true;
+                    gk.gkCatchBlend = 0.08;
+                    gk.holdTimer = 0.90;
+                    // Let the dive finish landing naturally onto the turf before standing up
+                    gk.diveTimer = Math.max(0.20, Math.min(0.36, gk.diveTimer));
+                    showEventBanner(`🧤 GREAT DIVING CATCH BY ${gk.data.name} (DIV ${gkDiv})!`, 2.2);
+                    return;
                 } else {
                     // Dramatic two-handed diving parry away from the goalmouth
                     BALL.vx = -BALL.vx * 0.36 + sideSign * 5.2;
                     BALL.vz = (gk.diveDirZ || (Math.random() > 0.5 ? 1 : -1)) * (8.5 + Math.random() * 4.5);
                     BALL.vy = Math.max(2.1, BALL.vy * 0.52);
                     BALL.isShot = false;
-                    BALL.pickupCooldown = 0.25;
+                    BALL.pickupCooldown = 0.28;
                     showEventBanner(`🧤 ACROBATIC DIVING SAVE BY ${gk.data.name} (DIV ${gkDiv})!`, 2.2);
                 }
             }
         }
+
+        // Smoothly transition into stand-up recovery once the dive finishes on the grass
+        if (prevDive > 0 && gk.diveTimer === 0) {
+            gk.gkGetUpDuration = 0.68;
+            gk.gkGetUpTimer = gk.gkGetUpDuration;
+        }
         return;
     }
 
-    // 1. Goalkeeper Smother / Catch when an opponent dribbles right in front of him
+    // 2. Standing / Crouching Two-Handed Catch for shots coming right at the goalkeeper's body
+    const movingTowardGoal = (gk.teamIdx === 0 && BALL.vx < -7.5) || (gk.teamIdx === 1 && BALL.vx > 7.5);
+    const distToGoalX = Math.abs(BALL.x - goalX);
+    if (BALL.isShot && !BALL.owner && movingTowardGoal && distToGoalX < 2.15) {
+        const dzDirect = Math.abs(BALL.z - gk.z);
+        if (dzDirect < 1.05 && BALL.y <= 2.35 && gk.canSaveCurrentShot !== false) {
+            MATCH.stats.saves[gk.teamIdx]++;
+            const shotSpd = Math.hypot(BALL.vx, BALL.vz);
+            const gkDiv = gk.data.div || gk.data.def || 85;
+            if (shotSpd < 33.0) {
+                BALL.owner = gk;
+                BALL.isShot = false;
+                BALL.passTarget = null;
+                BALL.passAssistTimer = 0;
+                BALL.lastTouchTeam = gk.teamIdx;
+                BALL.vx = 0; BALL.vz = 0; BALL.vy = 0;
+                gk.gkHoldingBall = true;
+                gk.gkCatchBlend = 1.0;
+                gk.caughtDuringDive = false;
+                gk.gkScoopTimer = BALL.y < 0.95 ? 0.34 : 0;
+                gk.holdTimer = 1.0;
+                showEventBanner(`🧤 CLEAN CATCH BY ${gk.data.name}!`, 2.0);
+                return;
+            } else {
+                BALL.vx = -BALL.vx * 0.32 + sideSign * 4.5;
+                BALL.vz = (BALL.z >= gk.z ? 1 : -1) * 7.5;
+                BALL.vy = Math.max(2.2, BALL.vy * 0.45);
+                BALL.isShot = false;
+                BALL.pickupCooldown = 0.25;
+                showEventBanner(`🧤 STRONG PARRY BY ${gk.data.name}!`, 2.0);
+                return;
+            }
+        }
+    }
+
+    // 3. Goalkeeper Smother / Catch when an opponent dribbles right in front of him
     if (BALL.owner && BALL.owner.teamIdx !== gk.teamIdx && !MATCH.kickoffRestriction && !MATCH.setPieceRestriction) {
         const carrier = BALL.owner;
         const distFromGoalX = Math.abs(BALL.x - goalX);
         const distToBall = Math.hypot(BALL.x - gk.x, BALL.z - gk.z);
         const distToCarrier = Math.hypot(carrier.x - gk.x, carrier.z - gk.z);
 
-        // If the dribbler brings the ball within the goalkeeper's reach in front of him, GK catches it cleanly!
+        // If the dribbler brings the ball within the goalkeeper's reach in front of him, GK catches it in hands!
         if (distToBall < 1.72 || distToCarrier < 1.55) {
             carrier.stumbleTimer = 0.60;
             carrier.vx *= 0.2;
@@ -3933,7 +4448,11 @@ function updateGoalkeeperAI(gk, dt) {
             BALL.passAssistTimer = 0;
             BALL.lastTouchTeam = gk.teamIdx;
             BALL.vx = 0; BALL.vz = 0; BALL.vy = 0;
-            gk.holdTimer = 1.15;
+            gk.gkHoldingBall = true;
+            gk.gkCatchBlend = 1.0;
+            gk.caughtDuringDive = false;
+            gk.gkScoopTimer = 0.36;
+            gk.holdTimer = 1.05;
             MATCH.stats.saves[gk.teamIdx]++;
             showEventBanner(`🧤 ${gk.data.name} CATCHES THE BALL AT ${carrier.data.name}'S FEET!`, 2.0);
             return;
@@ -3955,7 +4474,7 @@ function updateGoalkeeperAI(gk, dt) {
         }
     }
 
-    // 2. Goalkeeper collects loose non-shot balls inside his 6-yard / penalty area
+    // 4. Goalkeeper collects loose non-shot balls inside his 6-yard / penalty area
     if (!BALL.owner && !BALL.isShot && BALL.pickupCooldown <= 0 && Math.abs(BALL.x - goalX) < 8.5 && Math.abs(BALL.z) < 8.5) {
         const dLoose = Math.hypot(BALL.x - gk.x, BALL.z - gk.z);
         if (dLoose < 1.60 && BALL.y < 1.65) {
@@ -3965,7 +4484,11 @@ function updateGoalkeeperAI(gk, dt) {
             BALL.passAssistTimer = 0;
             BALL.lastTouchTeam = gk.teamIdx;
             BALL.vx = 0; BALL.vz = 0; BALL.vy = 0;
-            gk.holdTimer = 1.1;
+            gk.gkHoldingBall = true;
+            gk.gkCatchBlend = 1.0;
+            gk.caughtDuringDive = false;
+            gk.gkScoopTimer = BALL.y < 0.85 ? 0.32 : 0;
+            gk.holdTimer = 1.0;
             return;
         }
         const dx = BALL.x - gk.x;
@@ -3977,73 +4500,214 @@ function updateGoalkeeperAI(gk, dt) {
         return;
     }
 
-    // 3. Standard Goal-Line Positioning (Only when not diving)
-    const targetZ = Math.max(-GOAL_W * 0.38, Math.min(GOAL_W * 0.38, BALL.z * 0.50));
+    // 5. Standard Goal-Line Positioning (Tracks shot line or narrows angle smoothly)
+    let targetZ = Math.max(-GOAL_W * 0.38, Math.min(GOAL_W * 0.38, BALL.z * 0.50));
+    if (BALL.isShot && !BALL.owner && movingTowardGoal && distToGoalX < 20.0) {
+        const tEst = distToGoalX / Math.max(8, Math.abs(BALL.vx));
+        const predZ = BALL.z + BALL.vz * tEst;
+        targetZ = Math.max(-GOAL_W * 0.45, Math.min(GOAL_W * 0.45, predZ));
+    }
     gk.vx = (goalX - gk.x) * 4.5;
-    gk.vz = (targetZ - gk.z) * 5.2;
-    gk.facing = (gk.teamIdx === 0) ? 0 : Math.PI;
+    gk.vz = (targetZ - gk.z) * 5.6;
+    gk.facing = baseFacing;
 
-    // STRICT SHOT-TO-GOALPOST DIVE TRIGGER:
-    // Goalkeepers ONLY dive when BALL.isShot === true AND the ball is heading toward their goal frame!
-    const movingTowardGoal = (gk.teamIdx === 0 && BALL.vx < -7.5) || (gk.teamIdx === 1 && BALL.vx > 7.5);
-    const distToGoalX = Math.abs(BALL.x - goalX);
-
-    if (BALL.isShot && !BALL.owner && movingTowardGoal && distToGoalX < 18.5 && distToGoalX > 0.6 && !gk.diveCommitted) {
+    // 6. STRICT SHOT-TO-GOALPOST DIVE TRIGGER (Only dives when shot goes left/right of keeper or high!)
+    if (BALL.isShot && !BALL.owner && movingTowardGoal && distToGoalX < 19.5 && distToGoalX > 0.6 && !gk.diveCommitted) {
         const timeToLine = distToGoalX / Math.abs(BALL.vx);
         const predictedZ = BALL.z + BALL.vz * timeToLine;
         const predictedY = Math.max(0.28, BALL.y + BALL.vy * timeToLine - 0.5 * 19.5 * timeToLine * timeToLine);
 
-        // Only dive if the shot trajectory is heading inside or near the goalposts
         const isHeadingNearPosts = Math.abs(predictedZ) <= (GOAL_W / 2 + 1.15) && predictedY <= (GOAL_H + 0.85);
         if (isHeadingNearPosts) {
-            gk.diveCommitted = true;
             const zDelta = predictedZ - gk.z;
-            gk.diveDuration = 0.66;
-            gk.diveTimer = gk.diveDuration;
-            gk.diveDirZ = Math.abs(zDelta) < 0.25 ? (Math.random() > 0.5 ? 1 : -1) : Math.sign(zDelta);
-            gk.diveTargetY = Math.min(GOAL_H - 0.15, Math.max(0.45, predictedY));
 
             // Compare Goalkeeper's DIVING attribute vs Attacker's SHOOT attribute:
             const gkDiving = gk.data.div || gk.data.def || 85;
             const attackerShoot = BALL.shooterSho || 82;
-            const attrDiff = gkDiving - attackerShoot; // Positive = GK Diving advantage, Negative = Attacker Shoot advantage
+            const attrDiff = gkDiving - attackerShoot;
 
             const shotSpeed = Math.hypot(BALL.vx, BALL.vz);
             const shotOriginDist = Math.hypot((BALL.shotOriginX || BALL.x) - goalX, (BALL.shotOriginZ || BALL.z));
-            const cornerPlacement = Math.min(1.1, Math.abs(predictedZ) / (GOAL_W / 2)); // 0 = center, 1.0 = inside post
+            const cornerPlacement = Math.min(1.1, Math.abs(predictedZ) / (GOAL_W / 2));
             const topCornerPlacement = Math.max(0, (predictedY - 1.4) / (GOAL_H - 1.4));
 
-            // Engaging Duel Formula:
-            // Even when Attacker SHO > GK DIV, the keeper can still pull off heroic saves, and vice-versa!
-            let saveChance = 0.64
+            let saveChance = 0.65
                 + attrDiff * 0.016
                 - cornerPlacement * 0.30
                 - topCornerPlacement * 0.16
                 - Math.max(0, (shotSpeed - 29) * 0.016)
                 - (shotOriginDist < 14.0 ? (14.0 - shotOriginDist) * 0.020 : 0);
-
             saveChance = Math.max(0.18, Math.min(0.88, saveChance));
-            gk.canSaveCurrentShot = (Math.random() < saveChance);
 
-            // Scale lateral dive speed & glove reach with the goalkeeper's DIV attribute
+            // If the shot is heading straight at the keeper's chest/legs, stay on feet & step cleanly into the catch!
+            if (Math.abs(zDelta) < 0.82 && predictedY < 2.25) {
+                gk.canSaveCurrentShot = (Math.random() < Math.min(0.94, saveChance + 0.18));
+                return;
+            }
+
+            gk.diveCommitted = true;
+            gk.canSaveCurrentShot = (Math.random() < saveChance);
+            gk.diveDuration = 0.72 + Math.min(0.14, Math.abs(zDelta) * 0.025);
+            gk.diveTimer = gk.diveDuration;
+            gk.diveDirZ = Math.sign(zDelta) || (Math.random() > 0.5 ? 1 : -1);
+            gk.diveTargetY = Math.min(GOAL_H - 0.15, Math.max(0.35, predictedY));
+            // Exact local-space dive side so BOTH Home and Away keepers always dive head-and-hands toward the ball!
+            gk.gkDiveSide = (Math.cos(gk.facing) * gk.diveDirZ >= 0) ? 1 : -1;
+
             const divFactor = 0.85 + (gkDiving - 75) * 0.012;
-            gk.diveLateralSpeed = Math.min(11.8, Math.max(6.5, (Math.abs(zDelta) / Math.max(0.28, timeToLine)) * 1.12)) * divFactor;
-            gk.saveReachZ = gk.canSaveCurrentShot ? (2.35 * divFactor) : 0.62;
+            gk.diveLateralSpeed = Math.min(11.6, Math.max(6.2, (Math.abs(zDelta) / Math.max(0.30, timeToLine)) * 1.15)) * divFactor;
+            gk.saveReachZ = gk.canSaveCurrentShot ? (2.42 * divFactor) : 0.62;
+        }
+    }
+}
+
+// ============================================================================
+// DYNAMIC TEAM TACTICS ENGINE (Natural Attacking Support & Box Defense for BOTH Teams)
+// ============================================================================
+const TEAM_AI = [
+    { roles: new Map(), marks: new Map(), looseChaser: null, boxDanger: 0, attackProgress: 0, isAttacking: false, isDefending: false, oppDefLineX: 28 },
+    { roles: new Map(), marks: new Map(), looseChaser: null, boxDanger: 0, attackProgress: 0, isAttacking: false, isDefending: false, oppDefLineX: -28 }
+];
+
+function computeTeamTacticsContext() {
+    const possTeam = BALL.owner ? BALL.owner.teamIdx : (BALL.passTarget ? BALL.passTarget.teamIdx : -1);
+
+    for (let t = 0; t < 2; t++) {
+        const ctx = TEAM_AI[t];
+        ctx.roles.clear();
+        ctx.marks.clear();
+        ctx.looseChaser = null;
+
+        const attackSign = (t === 0) ? 1 : -1;
+        const ownGoalX = -attackSign * (PITCH_W / 2);
+        const isAttacking = (possTeam === t);
+        const isDefending = (possTeam === 1 - t);
+        ctx.isAttacking = isAttacking;
+        ctx.isDefending = isDefending;
+
+        const distBallToOwnGoal = Math.abs(BALL.x - ownGoalX);
+        // Ramps 0 -> 1 as opponent approaches within 30m of our goal & reaches 1.0 around/inside the 18-yard big box
+        ctx.boxDanger = Math.max(0, Math.min(1, (30.5 - distBallToOwnGoal) / 18.5));
+        ctx.attackProgress = Math.max(0, Math.min(1, (BALL.x * attackSign + 22) / 56));
+
+        const teamOutfield = players.filter(p => p.teamIdx === t && !p.isGK);
+        const oppOutfield = players.filter(p => p.teamIdx === 1 - t && !p.isGK);
+
+        // Compute opponent's deepest defensive line so attackers make realistic runs off the defenders' shoulders
+        if (oppOutfield.length > 0) {
+            const oppXs = oppOutfield.map(o => o.x * attackSign).sort((a, b) => b - a);
+            const deepest = oppXs[Math.min(1, oppXs.length - 1)] || 24;
+            ctx.oppDefLineX = Math.max(-10, Math.min(37, deepest)) * attackSign;
+        } else {
+            ctx.oppDefLineX = attackSign * 28;
+        }
+
+        // Dynamically switch CPU (Team 1) active presser to the best-positioned defender when Team 1 doesn't own the ball
+        if (t === 1 && !isAttacking && teamOutfield.length > 0) {
+            let bestPress = null;
+            let bestScore = Infinity;
+            teamOutfield.forEach(p => {
+                if (p.stumbleTimer > 0) return;
+                const d = Math.hypot(p.x - BALL.x, p.z - BALL.z);
+                const goalSideBonus = ((p.x - BALL.x) * attackSign < 0.8) ? -2.2 : 2.5;
+                const hysteresis = (p === controlledPlayer[1]) ? -2.4 : 0;
+                const sc = d + goalSideBonus + hysteresis;
+                if (sc < bestScore) { bestScore = sc; bestPress = p; }
+            });
+            if (bestPress) controlledPlayer[1] = bestPress;
+        }
+
+        // Loose ball chaser for each team (when ball is free with no pass target)
+        if (!BALL.owner && !BALL.passTarget) {
+            let closest = null, bestD = Infinity;
+            teamOutfield.forEach(p => {
+                if (t === 0 && p === controlledPlayer[0]) return;
+                const d = Math.hypot(p.x - BALL.x, p.z - BALL.z);
+                if (d < bestD) { bestD = d; closest = p; }
+            });
+            if (closest) ctx.looseChaser = closest;
+        }
+
+        if (isDefending) {
+            // Rank available non-selected defenders by proximity & goal-side position relative to the attacking ball carrier
+            const available = teamOutfield.filter(p => {
+                if (t === 0 && p === controlledPlayer[0]) return false;
+                if (t === 1 && p === controlledPlayer[1]) return false;
+                return true;
+            });
+
+            available.sort((a, b) => {
+                const da = Math.hypot(a.x - BALL.x, a.z - BALL.z) + (((a.x - BALL.x) * attackSign > 1.5) ? 4.2 : 0) + (a.idx <= 4 ? -2.2 : (a.idx >= 8 ? 5.5 : 0));
+                const db = Math.hypot(b.x - BALL.x, b.z - BALL.z) + (((b.x - BALL.x) * attackSign > 1.5) ? 4.2 : 0) + (b.idx <= 4 ? -2.2 : (b.idx >= 8 ? 5.5 : 0));
+                return da - db;
+            });
+
+            let slotIdx = 0;
+            // On User's team (Team 0), if the user-controlled player is far from the attacker, nearest AI teammate steps up to press/contain!
+            if (t === 0 && available.length > 0) {
+                const userP = controlledPlayer[0];
+                const userDist = userP ? Math.hypot(userP.x - BALL.x, userP.z - BALL.z) : 99;
+                if (userDist > 5.8) {
+                    ctx.roles.set(available[slotIdx++], 'PRESS_CONTAIN');
+                }
+            }
+
+            // Assign 2-3 collapsing box-cover defenders near the attacker (especially active as attacker approaches big box!)
+            if (available[slotIdx]) ctx.roles.set(available[slotIdx++], 'BOX_COVER_1');
+            if (available[slotIdx]) ctx.roles.set(available[slotIdx++], 'BOX_COVER_2');
+            if (ctx.boxDanger > 0.22 && available[slotIdx]) {
+                ctx.roles.set(available[slotIdx++], 'BOX_COVER_3');
+            }
+
+            // Remaining defenders & midfielders mark dangerous opponent attackers making runs toward our box
+            const dangerRunners = oppOutfield
+                .filter(op => op !== BALL.owner && Math.abs(op.x - ownGoalX) < 36)
+                .sort((a, b) => Math.abs(a.x - ownGoalX) - Math.abs(b.x - ownGoalX));
+
+            const unassignedMarkers = available.slice(slotIdx).filter(p => p.idx <= 7);
+            dangerRunners.forEach(runner => {
+                if (unassignedMarkers.length === 0) return;
+                let bestIdx = -1, bestDist = Infinity;
+                for (let i = 0; i < unassignedMarkers.length; i++) {
+                    const m = unassignedMarkers[i];
+                    const d = Math.hypot(m.x - runner.x, m.z - runner.z);
+                    if (d < bestDist) { bestDist = d; bestIdx = i; }
+                }
+                if (bestIdx >= 0 && bestDist < 26) {
+                    const marker = unassignedMarkers.splice(bestIdx, 1)[0];
+                    ctx.roles.set(marker, 'MARK_RUNNER');
+                    ctx.marks.set(marker, runner);
+                }
+            });
+        } else if (isAttacking) {
+            // Assign cohesive attacking support roles to non-carrier midfielders so attackers always have teammates helping!
+            const cms = teamOutfield.filter(p => p.idx >= 5 && p.idx <= 7 && p !== BALL.owner);
+            cms.sort((a, b) => Math.hypot(a.x - BALL.x, a.z - BALL.z) - Math.hypot(b.x - BALL.x, b.z - BALL.z));
+            if (cms[0]) ctx.roles.set(cms[0], 'ATT_SUPPORT_NEAR');
+            if (cms[1]) ctx.roles.set(cms[1], 'ATT_SUPPORT_LATE');
+            if (cms[2]) ctx.roles.set(cms[2], 'ATT_PIVOT');
         }
     }
 }
 
 function updateOutfieldAI(p, dt, baseSpeed) {
-    const sideSign = (p.teamIdx === 0) ? 1 : -1;
+    const attackSign = (p.teamIdx === 0) ? 1 : -1;
+    const ownGoalX = -attackSign * (PITCH_W / 2);
+    const oppGoalX = attackSign * (PITCH_W / 2);
+    const ctx = TEAM_AI[p.teamIdx];
 
-    // If this AI teammate is the locked pass receiver, move actively to meet the ball
+    if (p.aiDecisionCooldown > 0) {
+        p.aiDecisionCooldown = Math.max(0, p.aiDecisionCooldown - dt);
+    }
+
+    // 1. Locked pass receiver sprints actively to meet incoming pass
     if (!BALL.owner && BALL.passTarget === p && BALL.passAssistTimer > 0) {
         const dx = (BALL.x + BALL.vx * 0.18) - p.x;
         const dz = (BALL.z + BALL.vz * 0.18) - p.z;
         const d = Math.hypot(dx, dz);
         if (d > 0.35) {
-            p.vx = (dx / d) * baseSpeed * 1.05;
-            p.vz = (dz / d) * baseSpeed * 1.05;
+            p.vx = (dx / d) * baseSpeed * 1.08;
+            p.vz = (dz / d) * baseSpeed * 1.08;
             p.facing = Math.atan2(dz, dx);
         } else {
             p.vx = 0; p.vz = 0;
@@ -4051,51 +4715,336 @@ function updateOutfieldAI(p, dt, baseSpeed) {
         return;
     }
 
-    // CPU Ball Carrier Logic
+    // 2. CPU Ball Carrier Logic (Team 1) — Plays Natural Passing, Crossing, Evasive Dribbling & Shooting
     if (BALL.owner === p && p.teamIdx === 1) {
-        const goalX = -(PITCH_W / 2);
-        const distToGoal = Math.hypot(goalX - p.x, -p.z);
-        p.facing = Math.atan2(-p.z * 0.35, goalX - p.x);
-        p.vx = Math.cos(p.facing) * baseSpeed * 1.05;
-        p.vz = Math.sin(p.facing) * baseSpeed * 1.05;
+        const distToGoal = Math.hypot(oppGoalX - p.x, -p.z);
 
-        if (distToGoal < 19.5) {
-            executeKick(p, 'SHOOT', 0.54);
-        } else {
-            const threat = players.find(op => op.teamIdx === 0 && Math.hypot(op.x - p.x, op.z - p.z) < 3.4);
-            if (threat && Math.random() < 0.06) {
-                executeKick(p, 'PASS', 0.55);
+        // Evaluate immediate defender threat ahead
+        let nearestThreat = null;
+        let nearestThreatDist = 99;
+        let threatsClose = 0;
+        players.forEach(op => {
+            if (op.teamIdx !== 0 || op.isGK) return;
+            const d = Math.hypot(op.x - p.x, op.z - p.z);
+            if (d < nearestThreatDist) { nearestThreatDist = d; nearestThreat = op; }
+            if (d < 5.2) threatsClose++;
+        });
+
+        // Shoot when inside clear shooting range
+        if (distToGoal < 20.5 && (Math.abs(p.z) < 14.5 || distToGoal < 14.0)) {
+            if (distToGoal < 14.5 || nearestThreatDist > 2.2 || Math.random() < 0.09) {
+                const shotPwr = 0.50 + Math.random() * 0.24;
+                executeKick(p, 'SHOOT', shotPwr);
+                return;
             }
         }
+
+        // Look for supporting attacking teammates (passing, through-balls, and crosses from the wing!)
+        if (p.aiDecisionCooldown <= 0) {
+            const isWideNearBox = (p.x < -20 && Math.abs(p.z) > 12.5);
+            if (isWideNearBox) {
+                const boxMate = players.find(tm => tm.teamIdx === 1 && !tm.isGK && tm !== p && tm.x < -24 && Math.abs(tm.z) < 11);
+                if (boxMate) {
+                    p.facing = Math.atan2(boxMate.z - p.z, boxMate.x - p.x);
+                    p.aiDecisionCooldown = 0.55;
+                    executeKick(p, 'CROSS', 0.56);
+                    return;
+                }
+            }
+
+            // Score open teammates making supporting attacking runs
+            let bestMate = null;
+            let bestMateScore = 0;
+            players.forEach(tm => {
+                if (tm.teamIdx !== 1 || tm.isGK || tm === p) return;
+                const dMate = Math.hypot(tm.x - p.x, tm.z - p.z);
+                if (dMate < 5.5 || dMate > 28) return;
+                const forwardGain = p.x - tm.x; // Positive means tm is closer to Team 0's goal (-42)
+                if (forwardGain < -5.0 && threatsClose < 2) return;
+                let minOppToMate = 99;
+                players.forEach(op => {
+                    if (op.teamIdx === 0 && !op.isGK) {
+                        const d = Math.hypot(op.x - tm.x, op.z - tm.z);
+                        if (d < minOppToMate) minOppToMate = d;
+                    }
+                });
+                const openness = Math.min(10, minOppToMate);
+                const score = forwardGain * 1.15 + openness * 1.35 - Math.abs(tm.z) * 0.12 - dMate * 0.15;
+                if (score > bestMateScore && minOppToMate > 3.2) {
+                    bestMateScore = score;
+                    bestMate = tm;
+                }
+            });
+
+            const shouldPass = bestMate && (
+                (nearestThreatDist < 3.6 && Math.random() < 0.16) ||
+                (threatsClose >= 2 && Math.random() < 0.22) ||
+                (bestMateScore > 14.5 && Math.random() < 0.055)
+            );
+            if (shouldPass) {
+                const isThrough = (p.x - bestMate.x > 6.5 && bestMate.x > -34);
+                p.facing = Math.atan2(bestMate.z - p.z, bestMate.x - p.x);
+                p.aiDecisionCooldown = 0.45;
+                executeKick(p, isThrough ? 'THROUGH' : 'PASS', 0.60);
+                return;
+            }
+        }
+
+        // Smart evasive dribble toward goal
+        let desiredDirX = (oppGoalX - p.x);
+        let desiredDirZ = (-p.z * 0.42);
+        const norm = Math.hypot(desiredDirX, desiredDirZ) || 1;
+        desiredDirX /= norm;
+        desiredDirZ /= norm;
+
+        if (nearestThreat && nearestThreatDist < 5.2) {
+            // Curve subtly away from the closest oncoming defender
+            const awayZ = (p.z >= nearestThreat.z) ? 1 : -1;
+            const avoidWeight = (1 - nearestThreatDist / 5.2) * 0.72;
+            desiredDirZ += awayZ * avoidWeight;
+            const n2 = Math.hypot(desiredDirX, desiredDirZ) || 1;
+            desiredDirX /= n2;
+            desiredDirZ /= n2;
+        }
+
+        p.facing = Math.atan2(desiredDirZ, desiredDirX);
+        p.vx = desiredDirX * baseSpeed * 1.04;
+        p.vz = desiredDirZ * baseSpeed * 1.04;
         return;
     }
 
-    // Nearest AI defender presses ball carrier
+    // 3. Primary Presser on CPU (Team 1)
     if (p.teamIdx === 1 && p === controlledPlayer[1] && (!BALL.owner || BALL.owner.teamIdx === 0)) {
-        const dx = BALL.x - p.x;
-        const dz = BALL.z - p.z;
+        const leadX = BALL.owner ? (BALL.x + BALL.owner.vx * 0.14 - attackSign * 0.85) : BALL.x;
+        const leadZ = BALL.owner ? (BALL.z + BALL.owner.vz * 0.14) : BALL.z;
+        const dx = leadX - p.x;
+        const dz = leadZ - p.z;
         const d = Math.hypot(dx, dz);
-        p.facing = Math.atan2(dz, dx);
-        p.vx = (dx / (d || 1)) * baseSpeed * 1.04;
-        p.vz = (dz / (d || 1)) * baseSpeed * 1.04;
-        if (BALL.owner && d < 1.85 && Math.random() < 0.045) {
+        p.facing = Math.atan2(BALL.z - p.z, BALL.x - p.x);
+        const pressSpd = baseSpeed * (ctx.boxDanger > 0.45 ? 1.08 : 1.04);
+        p.vx = (dx / (d || 1)) * pressSpd;
+        p.vz = (dz / (d || 1)) * pressSpd;
+        const trueDist = Math.hypot(BALL.x - p.x, BALL.z - p.z);
+        if (BALL.owner && trueDist < 1.80 && Math.random() < (0.048 + ctx.boxDanger * 0.035)) {
             attemptStandingTackle(p);
         }
         return;
     }
 
-    // Tactical Formation Anchoring
-    const tacOffset = (SETTINGS.tactics[p.teamIdx] - 1) * 7.5 * sideSign;
-    const ballShiftX = BALL.x * 0.38 + tacOffset;
-    const targetX = Math.max(-38, Math.min(38, p.homeX + ballShiftX));
-    const targetZ = p.homeZ + BALL.z * 0.22;
+    // 4. Loose Ball Chaser (for BOTH teams when ball is free)
+    if (!BALL.owner && !BALL.passTarget && ctx.looseChaser === p) {
+        const dx = (BALL.x + BALL.vx * 0.15) - p.x;
+        const dz = (BALL.z + BALL.vz * 0.15) - p.z;
+        const d = Math.hypot(dx, dz);
+        p.facing = Math.atan2(dz, dx);
+        p.vx = (dx / (d || 1)) * baseSpeed * 1.06;
+        p.vz = (dz / (d || 1)) * baseSpeed * 1.06;
+        return;
+    }
+
+    // 5. Dynamic Team Movement (Applies identically to BOTH Team 0 and Team 1!)
+    const role = ctx.roles.get(p);
+    const tacOffset = (SETTINGS.tactics[p.teamIdx] - 1) * 6.8 * attackSign;
+    let targetX = p.homeX + BALL.x * 0.38 + tacOffset;
+    let targetZ = p.homeZ + BALL.z * 0.22;
+    let moveSpeedMult = 0.94;
+
+    if (ctx.isDefending) {
+        const danger = ctx.boxDanger; // 0 in opp half -> 1 approaching/inside our big box
+        const carrier = BALL.owner;
+        const attX = carrier ? carrier.x : BALL.x;
+        const attZ = carrier ? carrier.z : BALL.z;
+
+        // Goal-side unit vector pointing from attacker toward center of our goal
+        const toGoalX = ownGoalX - attX;
+        const toGoalZ = -attZ * 0.85;
+        const toGoalDist = Math.hypot(toGoalX, toGoalZ) || 1;
+        const gx = toGoalX / toGoalDist;
+        const gz = toGoalZ / toGoalDist;
+        // Perpendicular lateral vector for double-team / cover angles
+        const px = -gz;
+        const pz = gx;
+
+        if (role === 'PRESS_CONTAIN') {
+            // Non-selected Team 0 defender steps up to close down the attacker directly
+            targetX = attX + gx * 1.6;
+            targetZ = attZ + gz * 1.6;
+            moveSpeedMult = 1.05;
+            const dAtt = Math.hypot(attX - p.x, attZ - p.z);
+            if (carrier && dAtt < 1.65 && Math.random() < (0.045 + danger * 0.04)) {
+                attemptStandingTackle(p);
+            }
+        } else if (role === 'BOX_COVER_1') {
+            // Closest cover defender tightens dramatically as attacker approaches the big box!
+            const coverDist = 6.2 - danger * 3.4; // 6.2m at midfield -> 2.8m near/inside the box!
+            const insideShade = (attZ >= 0 ? -1 : 1) * (1.8 - danger * 0.5);
+            targetX = attX + gx * coverDist + px * insideShade * 0.35;
+            targetZ = attZ + gz * coverDist + insideShade;
+            moveSpeedMult = 0.96 + danger * 0.12;
+            const dAtt = Math.hypot(attX - p.x, attZ - p.z);
+            if (carrier && danger > 0.35 && dAtt < 1.60 && Math.random() < 0.065) {
+                attemptStandingTackle(p);
+            }
+        } else if (role === 'BOX_COVER_2') {
+            // Second defender collapses onto the opposite side / shooting lane around the big box!
+            const coverDist = 9.5 - danger * 4.5; // 9.5m -> 5.0m tightly protecting the box
+            const outsideShade = (attZ >= 0 ? 1 : -1) * (2.6 - danger * 0.4);
+            targetX = attX + gx * coverDist + px * outsideShade * 0.3;
+            targetZ = attZ + gz * coverDist + outsideShade;
+            moveSpeedMult = 0.94 + danger * 0.12;
+            const dAtt = Math.hypot(attX - p.x, attZ - p.z);
+            if (carrier && danger > 0.50 && dAtt < 1.55 && Math.random() < 0.055) {
+                attemptStandingTackle(p);
+            }
+        } else if (role === 'BOX_COVER_3') {
+            // Third defender guards the central penalty-spot / cutback danger zone near the attacker!
+            const boxGuardX = ownGoalX + attackSign * (8.5 + (1 - danger) * 6.5);
+            targetX = attX * 0.45 + boxGuardX * 0.55;
+            targetZ = attZ * 0.42;
+            moveSpeedMult = 0.95 + danger * 0.10;
+        } else if (role === 'MARK_RUNNER') {
+            // Tightly shadow an opponent attacking runner goal-side so they aren't free in the box!
+            const runner = ctx.marks.get(p);
+            if (runner) {
+                const rToGX = ownGoalX - runner.x;
+                const rToGZ = -runner.z * 0.6;
+                const rD = Math.hypot(rToGX, rToGZ) || 1;
+                const markGap = 2.6 - danger * 0.9;
+                targetX = runner.x + (rToGX / rD) * markGap;
+                targetZ = runner.z + (rToGZ / rD) * markGap;
+                moveSpeedMult = 0.96 + danger * 0.09;
+            }
+        } else {
+            // Cohesive compact defensive block — defenders & midfielders tuck in tightly around our box as danger rises
+            const isDef = (p.idx >= 1 && p.idx <= 4);
+            const isMid = (p.idx >= 5 && p.idx <= 7);
+            if (isDef) {
+                const deepBoxX = ownGoalX + attackSign * (9.5 + (p.idx === 1 || p.idx === 4 ? 2.5 : 0));
+                const baseDefX = p.homeX + BALL.x * 0.40 + tacOffset * 0.6;
+                targetX = baseDefX * (1 - danger * 0.72) + deepBoxX * (danger * 0.72);
+                targetZ = p.homeZ * (1 - danger * 0.46) + attZ * (0.28 + danger * 0.30);
+                moveSpeedMult = 0.95 + danger * 0.10;
+            } else if (isMid) {
+                const midShieldX = ownGoalX + attackSign * 17.5;
+                const baseMidX = p.homeX + BALL.x * 0.46 + tacOffset * 0.7;
+                targetX = baseMidX * (1 - danger * 0.65) + midShieldX * (danger * 0.65);
+                targetZ = p.homeZ * (1 - danger * 0.40) + attZ * (0.26 + danger * 0.28);
+                moveSpeedMult = 0.95 + danger * 0.08;
+            } else {
+                // Forwards drop to midfield counter-attack outlets when defending deep
+                targetX = p.homeX * 0.35 + BALL.x * 0.50 + attackSign * 10.5 + tacOffset * 0.5;
+                targetZ = p.homeZ * 0.72 + attZ * 0.18;
+                moveSpeedMult = 0.90;
+            }
+        }
+    } else if (ctx.isAttacking) {
+        // NATURAL ATTACKING SUPPORT (Applies identically to BOTH teams!)
+        const ap = ctx.attackProgress; // 0 deep in own half -> 1 in opponent's final third
+        const carrier = BALL.owner;
+        const cX = carrier ? carrier.x : BALL.x;
+        const cZ = carrier ? carrier.z : BALL.z;
+        const maxAttX = oppGoalX - attackSign * 4.8;
+        const clampAttX = (x) => (attackSign === 1) ? Math.min(maxAttX, Math.max(-34, x)) : Math.max(maxAttX, Math.min(34, x));
+
+        if (p.idx >= 8) {
+            // Front Three (RW #7 idx=8, ST #9 idx=9, LW #11 idx=10): Surge ahead & flood the box / channels!
+            const laneZBase = (p.idx === 8) ? (13.5 * attackSign) : (p.idx === 10 ? (-13.5 * attackSign) : 0);
+            const carrierIsWide = Math.abs(cZ) > 10.5;
+
+            if (p.idx === 9) {
+                // Central Striker: darts between center backs, attacking the penalty spot / opposite side of carrier
+                const leadRun = 11.5 + ap * 6.0;
+                const desiredFrontX = cX + attackSign * leadRun;
+                const lineAwareX = (attackSign === 1)
+                    ? Math.min(desiredFrontX, Math.max(ctx.oppDefLineX + 1.2, cX + 8.0))
+                    : Math.max(desiredFrontX, Math.min(ctx.oppDefLineX - 1.2, cX - 8.0));
+                targetX = clampAttX(lineAwareX);
+                targetZ = carrierIsWide ? (-Math.sign(cZ) * 3.8) : Math.max(-7, Math.min(7, -cZ * 0.32));
+                moveSpeedMult = 1.05;
+            } else {
+                // Wingers (RW / LW): stay wide in build-up, then cut diagonally into the box (near/far post) as attack nears big box!
+                const sameSideAsCarrier = (Math.sign(laneZBase) === Math.sign(cZ || 1));
+                const leadRun = sameSideAsCarrier ? (9.5 + ap * 4.5) : (12.5 + ap * 6.5);
+                targetX = clampAttX(cX + attackSign * leadRun);
+                const pinchFactor = ap * (sameSideAsCarrier ? 0.25 : 0.52);
+                targetZ = laneZBase * (1 - pinchFactor) + (carrierIsWide && !sameSideAsCarrier ? 0 : cZ * 0.12);
+                moveSpeedMult = 1.04;
+            }
+        } else if (p.idx >= 5 && p.idx <= 7) {
+            // Midfielders join the attack to give immediate passing triangles & edge-of-box runners!
+            if (role === 'ATT_SUPPORT_NEAR') {
+                // Diagonal forward/sideways support option & D-arc cutback runner
+                const supportSideZ = (cZ >= 0) ? -7.5 : 7.5;
+                targetX = clampAttX(cX + attackSign * (5.5 + ap * 5.0));
+                if (ap > 0.72) {
+                    // Arrive right at the edge of the opponent's big box for cutbacks / long shots!
+                    targetX = oppGoalX - attackSign * 14.2;
+                }
+                targetZ = Math.max(-21, Math.min(21, cZ + supportSideZ));
+                moveSpeedMult = 1.03;
+            } else if (role === 'ATT_SUPPORT_LATE') {
+                // Secondary late runner attacking the opposite half-space
+                const oppSideZ = (cZ >= 0) ? -12.0 : 12.0;
+                targetX = clampAttX(cX + attackSign * (1.5 + ap * 6.5));
+                targetZ = Math.max(-22, Math.min(22, oppSideZ * 0.7 + p.homeZ * 0.3));
+                moveSpeedMult = 1.00;
+            } else {
+                // Holding Pivot CM: safe recycling pass option behind the carrier + counter-attack protection
+                targetX = clampAttX(cX - attackSign * (9.5 - ap * 2.0));
+                targetZ = Math.max(-14, Math.min(14, cZ * 0.45));
+                moveSpeedMult = 0.94;
+            }
+        } else if (p.idx === 1 || p.idx === 4) {
+            // Fullbacks (RB / LB): ball-side fullback overlaps up the wing to help the attack!
+            const isBallSide = (Math.sign(p.homeZ) === Math.sign(cZ || 1));
+            if (isBallSide) {
+                targetX = clampAttX(Math.max(-22 * attackSign, cX * attackSign - 3.5) * attackSign + attackSign * (ap * 9.5));
+                // Keep ball-side fullback wide for overlapping crosses/support
+                targetZ = Math.sign(p.homeZ) * Math.max(17.5, Math.min(23.5, Math.abs(p.homeZ) + 2.5));
+                moveSpeedMult = 1.02;
+            } else {
+                // Far-side fullback pushes up to midfield and tucks slightly narrower for balance
+                targetX = p.homeX + attackSign * (10 + ap * 18) + tacOffset * 0.7;
+                targetZ = p.homeZ * 0.76 + cZ * 0.14;
+                moveSpeedMult = 0.94;
+            }
+        } else {
+            // Center Backs (CB): step up together with the attacking wave toward the halfway line
+            const highLineX = p.homeX + attackSign * (9 + ap * 19) + tacOffset * 0.6;
+            const maxCbX = attackSign * 8.0; // Don't sprint past opponent's midfield
+            targetX = (attackSign === 1) ? Math.min(maxCbX, highLineX) : Math.max(maxCbX, highLineX);
+            targetZ = p.homeZ * 0.85 + cZ * 0.24;
+            moveSpeedMult = 0.92;
+        }
+    }
+
+    // Clamp target comfortably inside pitch boundaries
+    targetX = Math.max(-PITCH_W / 2 + 2.2, Math.min(PITCH_W / 2 - 2.2, targetX));
+    targetZ = Math.max(-PITCH_H / 2 + 1.8, Math.min(PITCH_H / 2 - 1.8, targetZ));
+
+    // Gentle anti-clumping separation from nearby same-team players so teammates form clean passing & defensive shapes
+    let sepX = 0, sepZ = 0;
+    players.forEach(tm => {
+        if (tm === p || tm.teamIdx !== p.teamIdx || tm.isGK) return;
+        const sdx = p.x - tm.x;
+        const sdz = p.z - tm.z;
+        const sd = Math.hypot(sdx, sdz);
+        if (sd > 0.01 && sd < 2.75) {
+            const push = (2.75 - sd) * 1.4;
+            sepX += (sdx / sd) * push;
+            sepZ += (sdz / sd) * push;
+        }
+    });
+    targetX += sepX;
+    targetZ += sepZ;
 
     const dx = targetX - p.x;
     const dz = targetZ - p.z;
     const d = Math.hypot(dx, dz);
-    if (d > 0.45) {
-        p.vx = (dx / d) * Math.min(baseSpeed * 0.9, d * 2.5);
-        p.vz = (dz / d) * Math.min(baseSpeed * 0.9, d * 2.5);
+    if (d > 0.52) {
+        const desiredSpd = Math.min(baseSpeed * moveSpeedMult, d * 3.1);
+        p.vx = (dx / d) * desiredSpd;
+        p.vz = (dz / d) * desiredSpd;
         p.facing = Math.atan2(p.vz, p.vx);
     } else {
         p.vx = 0; p.vz = 0;
@@ -4103,22 +5052,44 @@ function updateOutfieldAI(p, dt, baseSpeed) {
     }
 }
 
+const _gkHandL = new THREE.Vector3();
+const _gkHandR = new THREE.Vector3();
+const _gkHoldMid = new THREE.Vector3();
+
 function updateBallPhysics(dt) {
     if (BALL.owner) {
         const o = BALL.owner;
-        const speed = Math.hypot(o.vx, o.vz);
-        const strideTouch = speed > 0.4 ? Math.abs(Math.sin(o.animPhase)) * 0.22 : 0;
-        const leadDist = 0.56 + strideTouch;
-        BALL.x = o.x + Math.cos(o.facing) * leadDist;
-        BALL.z = o.z + Math.sin(o.facing) * leadDist;
-        BALL.y = 0.28;
-        BALL.vx = o.vx;
-        BALL.vz = o.vz;
-        BALL.vy = 0;
-        BALL.lastTouchTeam = o.teamIdx;
+        const isGkHandHold = !!(o.isGK && o.gkHoldingBall && (!MATCH.setPieceRestriction || MATCH.setPieceRestriction.type !== 'GOAL_KICK'));
+
+        if (isGkHandHold && o.mesh && o.mesh.leftArm && o.mesh.leftArm.hand && o.mesh.rightArm && o.mesh.rightArm.hand) {
+            // Attach ball precisely between the goalkeeper's gloved hands during dive landing, stand-up, and standing hold!
+            o.mesh.root.updateMatrixWorld(true);
+            o.mesh.leftArm.hand.getWorldPosition(_gkHandL);
+            o.mesh.rightArm.hand.getWorldPosition(_gkHandR);
+            _gkHoldMid.addVectors(_gkHandL, _gkHandR).multiplyScalar(0.5);
+            const palmOut = (o.diveTimer > 0 || o.gkGetUpTimer > 0) ? 0.04 : 0.07;
+            BALL.x = _gkHoldMid.x + Math.cos(o.facing) * palmOut;
+            BALL.z = _gkHoldMid.z + Math.sin(o.facing) * palmOut;
+            BALL.y = Math.max(0.28, _gkHoldMid.y);
+            BALL.vx = o.vx;
+            BALL.vz = o.vz;
+            BALL.vy = 0;
+            BALL.lastTouchTeam = o.teamIdx;
+        } else {
+            const speed = Math.hypot(o.vx, o.vz);
+            const strideTouch = speed > 0.4 ? Math.abs(Math.sin(o.animPhase)) * 0.22 : 0;
+            const leadDist = 0.56 + strideTouch;
+            BALL.x = o.x + Math.cos(o.facing) * leadDist;
+            BALL.z = o.z + Math.sin(o.facing) * leadDist;
+            BALL.y = 0.28;
+            BALL.vx = o.vx;
+            BALL.vz = o.vz;
+            BALL.vy = 0;
+            BALL.lastTouchTeam = o.teamIdx;
+        }
 
         // Check if the ball carrier dribbled the ball out of bounds (or directly into the goal)
-        if (MATCH.state === 'PLAYING' && !MATCH.kickoffRestriction && !MATCH.setPieceRestriction) {
+        if (!isGkHandHold && MATCH.state === 'PLAYING' && !MATCH.kickoffRestriction && !MATCH.setPieceRestriction) {
             const hw = PITCH_W / 2;
             const hh = PITCH_H / 2;
             const inGoalMouthZ = Math.abs(BALL.z) < (GOAL_W / 2 - 0.15);
@@ -4262,8 +5233,10 @@ function updateBallPhysics(dt) {
     }
 
     ballMesh.position.set(BALL.x, BALL.y, BALL.z);
-    ballMesh.rotation.z -= BALL.vx * dt * 1.6;
-    ballMesh.rotation.x += BALL.vz * dt * 1.6;
+    if (!(BALL.owner && BALL.owner.isGK && BALL.owner.gkHoldingBall)) {
+        ballMesh.rotation.z -= BALL.vx * dt * 1.6;
+        ballMesh.rotation.x += BALL.vz * dt * 1.6;
+    }
 }
 
 function handleOutOfBoundsThrowIn(zSign) {
@@ -4313,6 +5286,12 @@ function handleOutOfBoundsEndline(xSign) {
             gk.x = xSign * (PITCH_W / 2 - 4.2);
             gk.z = 0;
             gk.vx = 0; gk.vz = 0;
+            gk.diveTimer = 0;
+            gk.gkGetUpTimer = 0;
+            gk.gkHoldingBall = false;
+            gk.caughtDuringDive = false;
+            gk.gkCatchBlend = 0;
+            gk.gkScoopTimer = 0;
             gk.facing = (defendingTeam === 0) ? 0 : Math.PI;
             BALL.owner = gk;
             BALL.isShot = false;
@@ -4332,7 +5311,15 @@ function syncPlayer3D(p, dt) {
     root.position.set(p.x, 0, p.z);
     root.rotation.y = -p.facing;
 
+    // Clean baseline resets so dive/slide/stand-up offsets never bleed into other states
+    bodyGroup.position.z = 0;
+    spineGroup.rotation.set(0, 0, 0);
+    spineGroup.position.y = 1.04;
+    leftArm.shoulder.rotation.y = 0;
+    rightArm.shoulder.rotation.y = 0;
+
     const speed = Math.hypot(p.vx, p.vz);
+    const isGkHolding = !!(p.isGK && p.gkHoldingBall && (!MATCH.setPieceRestriction || MATCH.setPieceRestriction.type !== 'GOAL_KICK'));
 
     // Natural Head Tracking Toward the Ball
     const angleToBall = Math.atan2(BALL.z - p.z, BALL.x - p.x);
@@ -4341,6 +5328,18 @@ function syncPlayer3D(p, dt) {
     while (headYaw < -Math.PI) headYaw += Math.PI * 2;
     headGroup.rotation.y = -Math.max(-0.55, Math.min(0.55, headYaw * 0.55));
     headGroup.rotation.x = 0;
+
+    // Helper: Two-handed goalkeeper ball-cradling arm pose (gloves cup left & right sides of the ball in front of chest)
+    function applyGkBallHoldArms(blend = 1.0) {
+        const b = Math.max(0, Math.min(1, blend));
+        leftArm.shoulder.rotation.z = leftArm.shoulder.rotation.z * (1 - b) + 0.62 * b;
+        leftArm.shoulder.rotation.x = leftArm.shoulder.rotation.x * (1 - b) + (-0.18) * b;
+        leftArm.elbow.rotation.z = leftArm.elbow.rotation.z * (1 - b) + 0.94 * b;
+
+        rightArm.shoulder.rotation.z = rightArm.shoulder.rotation.z * (1 - b) + 0.62 * b;
+        rightArm.shoulder.rotation.x = rightArm.shoulder.rotation.x * (1 - b) + 0.18 * b;
+        rightArm.elbow.rotation.z = rightArm.elbow.rotation.z * (1 - b) + 0.94 * b;
+    }
 
     // 1. Feet-First Sliding Tackle Animation
     if (p.slideTimer > 0) {
@@ -4358,43 +5357,167 @@ function syncPlayer3D(p, dt) {
         rightLeg.ankle.rotation.z = 0.15;
 
         leftArm.shoulder.rotation.z = -0.45;
+        leftArm.shoulder.rotation.x = -0.12;
         leftArm.elbow.rotation.z = 0.55;
         rightArm.shoulder.rotation.z = 0.35;
+        rightArm.shoulder.rotation.x = 0.12;
         rightArm.elbow.rotation.z = 0.45;
         return;
     }
 
-    // 2. Natural Airborne Goalkeeper Dive Kinematics (Full Torso Extension + Overhead Arm Reach + Parabolic Arc)
+    // 2. Natural Multi-Phase Goalkeeper Dive Kinematics
+    // Phase A (0.00-0.16): Athletic push-off crouch & launch
+    // Phase B (0.16-0.66): Full-stretch airborne extension pivoting cleanly around hips toward the ball
+    // Phase C (0.66-1.00): Cushioned turf landing & skid onto side (pulling ball into chest if caught!)
     if (p.diveTimer > 0) {
-        const progress = 1 - (p.diveTimer / (p.diveDuration || 0.62)); // 0 -> 1
-        const diveArc = Math.sin(progress * Math.PI);
-        const dir = p.diveDirZ || 1;
-        const highDiveFactor = Math.min(1, Math.max(0.15, (p.diveTargetY || 1.2) / GOAL_H));
+        const dur = p.diveDuration || 0.72;
+        const progress = Math.max(0, Math.min(1, 1 - (p.diveTimer / dur)));
+        // Exact local dive side so BOTH Home (facing 0) and Away (facing PI) keepers always dive head-first toward the ball!
+        const localDir = p.gkDiveSide || ((Math.cos(p.facing) * (p.diveDirZ || 1) >= 0) ? 1 : -1);
+        const highDiveFactor = Math.min(1, Math.max(0.08, ((p.diveTargetY || 1.1) - 0.30) / (GOAL_H - 0.30)));
 
-        // Lift off turf in a natural parabolic arc and land smoothly
-        bodyGroup.position.y = 0.18 + diveArc * (0.45 + highDiveFactor * 0.65);
-        // Full lateral body extension toward the shot corner
-        bodyGroup.rotation.x = dir * Math.min(1.38, progress * 2.4);
-        bodyGroup.rotation.z = -0.18 * diveArc;
+        let tiltAngle = 0;
+        let heightY = 0;
+        let crouchZ = 0;
+        let airborneFactor = 0;
 
-        spineGroup.rotation.x = dir * 0.22 * diveArc;
-        headGroup.rotation.x = -dir * 0.25;
+        if (progress < 0.16) {
+            // Explosive push-off & crouch launch
+            const u = progress / 0.16;
+            const s = u * u * (3 - 2 * u);
+            tiltAngle = localDir * 0.58 * s;
+            heightY = -0.14 * Math.sin(u * Math.PI) + 0.24 * s;
+            crouchZ = -0.22 * Math.sin(u * Math.PI);
+            airborneFactor = s * 0.45;
+        } else if (progress < 0.68) {
+            // Full airborne parabolic stretch toward target height
+            const u = (progress - 0.16) / 0.52;
+            const arc = Math.sin(u * Math.PI);
+            const launchEase = Math.min(1, u * 2.4);
+            tiltAngle = localDir * (0.58 + 0.90 * (launchEase * (2 - launchEase))); // up to ~1.48 rad (horizontal)
+            heightY = 0.25 + arc * (0.20 + highDiveFactor * 0.92);
+            crouchZ = -0.14 * arc;
+            airborneFactor = 0.55 + 0.45 * arc;
+        } else {
+            // Smooth cushioned turf landing & grass skid onto hip/shoulder
+            const u = (progress - 0.68) / 0.32;
+            const s = u * u * (3 - 2 * u);
+            tiltAngle = localDir * (1.48 - 0.04 * s); // settles cleanly at 1.44 rad on grass
+            heightY = 0.25 + (1 - s) * 0.08;
+            crouchZ = -0.05 * (1 - s);
+            airborneFactor = (1 - s) * 0.35;
+        }
 
-        // Both arms reach overhead toward the ball's flight path
-        const reachAngle = 2.65 * Math.min(1, progress * 2.2);
+        // Pivot around hips/pelvis rather than ankles so body stretches naturally through the air
+        bodyGroup.position.y = heightY;
+        bodyGroup.position.z = -0.54 * Math.sin(tiltAngle);
+        bodyGroup.rotation.x = tiltAngle;
+        bodyGroup.rotation.z = crouchZ;
+
+        // Open chest slightly toward the shooter while diving so both gloves face the incoming ball
+        spineGroup.rotation.x = localDir * 0.14 * airborneFactor;
+        spineGroup.rotation.y = -localDir * 0.20 * airborneFactor;
+        headGroup.rotation.x = -localDir * 0.22;
+
+        // Outstretched diving arms reaching for the ball (with subtle wrist/elbow form)
+        const reachProgress = Math.min(1, progress / 0.26);
+        const reachEase = reachProgress * (2 - reachProgress);
+        const reachAngle = 2.68 * reachEase;
         leftArm.shoulder.rotation.z = reachAngle;
-        leftArm.shoulder.rotation.x = -0.18;
-        leftArm.elbow.rotation.z = 0.15;
+        leftArm.shoulder.rotation.x = -0.14;
+        leftArm.elbow.rotation.z = 0.16;
 
         rightArm.shoulder.rotation.z = reachAngle;
-        rightArm.shoulder.rotation.x = 0.18;
-        rightArm.elbow.rotation.z = 0.15;
+        rightArm.shoulder.rotation.x = 0.14;
+        rightArm.elbow.rotation.z = 0.16;
 
-        // Athletic goalkeeper knee tuck & push-off extension
-        leftLeg.hip.rotation.z = 0.35 * diveArc;
-        leftLeg.knee.rotation.z = -0.55 * diveArc;
-        rightLeg.hip.rotation.z = -0.15 * diveArc;
-        rightLeg.knee.rotation.z = -0.25 * diveArc;
+        // If keeper caught the ball mid-dive, smoothly draw both gloved hands in to cradle the ball against chest!
+        if (isGkHolding) {
+            applyGkBallHoldArms(p.gkCatchBlend || 1.0);
+        }
+
+        // Asymmetric athletic goalkeeper legs: lower (push-off) leg extends straight, upper leg tucks slightly
+        const lowerLeg = (localDir > 0) ? rightLeg : leftLeg;
+        const upperLeg = (localDir > 0) ? leftLeg : rightLeg;
+        const landingCurl = progress > 0.68 ? ((progress - 0.68) / 0.32) : 0;
+
+        lowerLeg.hip.rotation.z = -0.18 * airborneFactor + 0.32 * landingCurl;
+        lowerLeg.knee.rotation.z = -0.18 * airborneFactor - 0.45 * landingCurl;
+        lowerLeg.ankle.rotation.z = -0.25 * airborneFactor;
+
+        upperLeg.hip.rotation.z = 0.42 * airborneFactor + 0.35 * landingCurl;
+        upperLeg.knee.rotation.z = -0.68 * airborneFactor - 0.42 * landingCurl;
+        upperLeg.ankle.rotation.z = 0.15 * airborneFactor;
+        return;
+    }
+
+    // 2b. Smooth Goalkeeper Stand-Up Recovery After Dive (rolls from side -> kneels -> pushes up to standing!)
+    if (p.gkGetUpTimer > 0) {
+        const dur = p.gkGetUpDuration || 0.78;
+        const u = Math.max(0, Math.min(1, 1 - (p.gkGetUpTimer / dur))); // 0 (on grass) -> 1 (standing tall)
+        const localDir = p.gkDiveSide || 1;
+
+        let tiltAngle, heightY, leanZ, kneeBendL, kneeBendR, hipFlexL, hipFlexR;
+
+        if (u < 0.48) {
+            // Phase 1: Roll from side onto knees & plant one foot on the grass
+            const t = u / 0.48;
+            const s = t * t * (3 - 2 * t);
+            tiltAngle = localDir * (1.44 * (1 - s) + 0.24 * s);
+            heightY = 0.25 * (1 - s) + (-0.24) * s;
+            leanZ = -0.50 * s;
+            hipFlexL = 0.35 * (1 - s) + 1.08 * s;
+            kneeBendL = -0.55 * (1 - s) + (-1.58) * s;
+            hipFlexR = 0.32 * (1 - s) + 0.58 * s;
+            kneeBendR = -0.50 * (1 - s) + (-1.18) * s;
+        } else {
+            // Phase 2: Push up smoothly from crouched knee-up stance into full upright athletic stance
+            const t = (u - 0.48) / 0.52;
+            const s = t * t * (3 - 2 * t);
+            tiltAngle = localDir * 0.24 * (1 - s);
+            heightY = -0.24 * (1 - s);
+            leanZ = -0.50 * (1 - s) + (-0.04) * s;
+            hipFlexL = 1.08 * (1 - s) + 0.08 * s;
+            kneeBendL = -1.58 * (1 - s) + (-0.18) * s;
+            hipFlexR = 0.58 * (1 - s) + (-0.05) * s;
+            kneeBendR = -1.18 * (1 - s) + (-0.18) * s;
+        }
+
+        bodyGroup.position.y = heightY;
+        bodyGroup.position.z = -0.54 * Math.sin(tiltAngle);
+        bodyGroup.rotation.x = tiltAngle;
+        bodyGroup.rotation.z = leanZ;
+        spineGroup.rotation.y = -localDir * 0.16 * (1 - u);
+
+        leftLeg.hip.rotation.z = hipFlexL;
+        leftLeg.knee.rotation.z = kneeBendL;
+        leftLeg.ankle.rotation.z = 0.22 * (1 - u);
+
+        rightLeg.hip.rotation.z = hipFlexR;
+        rightLeg.knee.rotation.z = kneeBendR;
+        rightLeg.ankle.rotation.z = 0.22 * (1 - u);
+
+        if (isGkHolding) {
+            // Keep BOTH gloved hands securely cradling the caught ball against his chest while standing up!
+            leftArm.shoulder.rotation.z = 0.62;
+            leftArm.shoulder.rotation.x = -0.18;
+            leftArm.elbow.rotation.z = 0.94;
+            rightArm.shoulder.rotation.z = 0.62;
+            rightArm.shoulder.rotation.x = 0.18;
+            rightArm.elbow.rotation.z = 0.94;
+        } else {
+            // Empty-handed: plant lower arm against the turf to push up, then return to GK ready stance
+            const pushArm = (localDir > 0) ? rightArm : leftArm;
+            const freeArm = (localDir > 0) ? leftArm : rightArm;
+            const pushPhase = Math.sin(Math.min(1, u / 0.7) * Math.PI);
+            pushArm.shoulder.rotation.z = 0.42 + 0.68 * pushPhase;
+            pushArm.shoulder.rotation.x = (localDir > 0 ? 0.22 : -0.22);
+            pushArm.elbow.rotation.z = 0.85 - 0.55 * pushPhase;
+
+            freeArm.shoulder.rotation.z = 0.42;
+            freeArm.shoulder.rotation.x = (localDir > 0 ? -0.14 : 0.14);
+            freeArm.elbow.rotation.z = 0.88;
+        }
         return;
     }
 
@@ -4442,8 +5565,8 @@ function syncPlayer3D(p, dt) {
         bodyGroup.position.y = Math.abs(Math.cos(phaseL)) * 0.075 * strideRatio;
         bodyGroup.rotation.z = -0.11 * strideRatio; // Natural athletic forward sprint lean (+X)
 
-        // Thoracic counter-rotation against pelvis
-        spineGroup.rotation.y = Math.sin(phaseL) * 0.22 * strideRatio;
+        // Thoracic counter-rotation against pelvis (calmer when GK is walking while cradling ball)
+        spineGroup.rotation.y = Math.sin(phaseL) * (isGkHolding ? 0.06 : 0.22) * strideRatio;
         spineGroup.rotation.x = Math.cos(phaseL) * 0.05 * strideRatio;
 
         function applyLegKinematics(leg, ph) {
@@ -4460,39 +5583,88 @@ function syncPlayer3D(p, dt) {
         applyLegKinematics(leftLeg, phaseL);
         applyLegKinematics(rightLeg, phaseR);
 
-        // Bent-Elbow Counter-Swinging Runner Arms
-        const armSwing = Math.sin(phaseL) * 0.68 * strideRatio;
-        leftArm.shoulder.rotation.z = -armSwing;
-        leftArm.shoulder.rotation.x = -0.10;
-        leftArm.elbow.rotation.z = 0.88 + Math.max(0, -armSwing) * 0.35;
+        if (isGkHolding) {
+            // Keep both gloved hands securely cradling the ball even while stepping forward in the box!
+            applyGkBallHoldArms(1.0);
+        } else {
+            // Bent-Elbow Counter-Swinging Runner Arms
+            const armSwing = Math.sin(phaseL) * 0.68 * strideRatio;
+            leftArm.shoulder.rotation.z = -armSwing;
+            leftArm.shoulder.rotation.x = -0.10;
+            leftArm.elbow.rotation.z = 0.88 + Math.max(0, -armSwing) * 0.35;
 
-        rightArm.shoulder.rotation.z = armSwing;
-        rightArm.shoulder.rotation.x = 0.10;
-        rightArm.elbow.rotation.z = 0.88 + Math.max(0, armSwing) * 0.35;
+            rightArm.shoulder.rotation.z = armSwing;
+            rightArm.shoulder.rotation.x = 0.10;
+            rightArm.elbow.rotation.z = 0.88 + Math.max(0, armSwing) * 0.35;
+        }
     } else {
-        // Natural Athletic Idle Breathing & Ready Stance
+        // Natural Athletic Idle Breathing, GK Ready Stance & Standing Ball-Holding / Scooping
         const breath = Math.sin(performance.now() * 0.003 + p.idx) * 0.025;
-        bodyGroup.position.y = 0;
-        bodyGroup.rotation.z = -0.02;
-        spineGroup.rotation.y = 0;
-        spineGroup.rotation.x = 0;
-        spineGroup.position.y = 1.04 + breath * 0.4;
+        const scoopArc = (p.isGK && p.gkScoopTimer > 0) ? Math.sin((p.gkScoopTimer / 0.35) * Math.PI) : 0;
 
-        leftLeg.hip.rotation.z = 0.05;
-        leftLeg.knee.rotation.z = -0.10;
-        leftLeg.ankle.rotation.z = 0.05;
+        if (isGkHolding) {
+            // Goalkeeper standing upright (or finishing low scoop) holding the ball securely in both hands
+            bodyGroup.position.y = -0.22 * scoopArc;
+            bodyGroup.rotation.z = -0.04 - 0.38 * scoopArc;
+            spineGroup.rotation.y = 0;
+            spineGroup.rotation.x = 0;
+            spineGroup.position.y = 1.04 + breath * 0.35;
 
-        rightLeg.hip.rotation.z = -0.05;
-        rightLeg.knee.rotation.z = -0.10;
-        rightLeg.ankle.rotation.z = 0.05;
+            leftLeg.hip.rotation.z = 0.08 + 0.52 * scoopArc;
+            leftLeg.knee.rotation.z = -0.14 - 0.88 * scoopArc;
+            leftLeg.ankle.rotation.z = 0.06 + 0.25 * scoopArc;
 
-        leftArm.shoulder.rotation.z = -0.05;
-        leftArm.shoulder.rotation.x = -0.08;
-        leftArm.elbow.rotation.z = 0.32;
+            rightLeg.hip.rotation.z = -0.06 + 0.44 * scoopArc;
+            rightLeg.knee.rotation.z = -0.14 - 0.78 * scoopArc;
+            rightLeg.ankle.rotation.z = 0.06 + 0.22 * scoopArc;
 
-        rightArm.shoulder.rotation.z = 0.05;
-        rightArm.shoulder.rotation.x = 0.08;
-        rightArm.elbow.rotation.z = 0.32;
+            applyGkBallHoldArms(1.0);
+        } else if (p.isGK) {
+            // Athletic Goalkeeper Ready Stance on the goal line (knees slightly flexed, gloved hands up & alert)
+            bodyGroup.position.y = -0.07 + breath * 0.3;
+            bodyGroup.rotation.z = -0.14;
+            spineGroup.rotation.y = 0;
+            spineGroup.rotation.x = 0;
+            spineGroup.position.y = 1.04 + breath * 0.35;
+
+            leftLeg.hip.rotation.z = 0.24;
+            leftLeg.knee.rotation.z = -0.42;
+            leftLeg.ankle.rotation.z = 0.16;
+
+            rightLeg.hip.rotation.z = 0.18;
+            rightLeg.knee.rotation.z = -0.38;
+            rightLeg.ankle.rotation.z = 0.16;
+
+            leftArm.shoulder.rotation.z = 0.44;
+            leftArm.shoulder.rotation.x = -0.16;
+            leftArm.elbow.rotation.z = 0.92;
+
+            rightArm.shoulder.rotation.z = 0.44;
+            rightArm.shoulder.rotation.x = 0.16;
+            rightArm.elbow.rotation.z = 0.92;
+        } else {
+            bodyGroup.position.y = 0;
+            bodyGroup.rotation.z = -0.02;
+            spineGroup.rotation.y = 0;
+            spineGroup.rotation.x = 0;
+            spineGroup.position.y = 1.04 + breath * 0.4;
+
+            leftLeg.hip.rotation.z = 0.05;
+            leftLeg.knee.rotation.z = -0.10;
+            leftLeg.ankle.rotation.z = 0.05;
+
+            rightLeg.hip.rotation.z = -0.05;
+            rightLeg.knee.rotation.z = -0.10;
+            rightLeg.ankle.rotation.z = 0.05;
+
+            leftArm.shoulder.rotation.z = -0.05;
+            leftArm.shoulder.rotation.x = -0.08;
+            leftArm.elbow.rotation.z = 0.32;
+
+            rightArm.shoulder.rotation.z = 0.05;
+            rightArm.shoulder.rotation.x = 0.08;
+            rightArm.elbow.rotation.z = 0.32;
+        }
     }
 }
 
@@ -5052,6 +6224,7 @@ function setupNextPenaltyKick() {
     players.forEach((p, idx) => {
         p.vx = 0; p.vz = 0;
         p.diveTimer = 0; p.slideTimer = 0; p.stumbleTimer = 0; p.kickAnimTimer = 0;
+        p.gkHoldingBall = false; p.caughtDuringDive = false; p.gkCatchBlend = 0; p.gkGetUpTimer = 0; p.gkScoopTimer = 0;
         p.x = (p.teamIdx === 0 ? -2.2 : 2.2);
         p.z = -11 + (idx % 11) * 2.2;
         p.facing = 0;
@@ -5144,10 +6317,11 @@ function firePenaltyShot(shootingTeam, aimZ, aimY, power) {
     PENALTY_STATE.activeGkDiveDir = diveDir;
 
     if (gk && diveDir !== 0) {
-        gk.diveDuration = 0.65;
-        gk.diveTimer = 0.65;
+        gk.diveDuration = 0.74;
+        gk.diveTimer = 0.74;
         gk.diveDirZ = diveDir;
-        gk.diveTargetY = Math.min(GOAL_H - 0.2, Math.max(0.5, aimY));
+        gk.gkDiveSide = (Math.cos(gk.facing) * diveDir >= 0) ? 1 : -1;
+        gk.diveTargetY = Math.min(GOAL_H - 0.2, Math.max(0.45, aimY));
     }
 
     // Launch ball toward (42.5, aimY, aimZ)
@@ -5232,18 +6406,41 @@ function updatePenaltyShootout(dt) {
     } else if (PENALTY_STATE.phase === 'SHOT_FLIGHT') {
         const gk = PENALTY_STATE.gk;
         if (gk) {
+            if (gk.gkHoldingBall) {
+                gk.gkCatchBlend = Math.min(1, (gk.gkCatchBlend || 0) + dt * 6.5);
+            }
             if (gk.diveTimer > 0) {
+                const prevDive = gk.diveTimer;
                 gk.diveTimer = Math.max(0, gk.diveTimer - dt);
+                if (prevDive > 0 && gk.diveTimer === 0) {
+                    gk.gkGetUpDuration = 0.78;
+                    gk.gkGetUpTimer = gk.gkGetUpDuration;
+                }
+            } else if (gk.gkGetUpTimer > 0) {
+                gk.gkGetUpTimer = Math.max(0, gk.gkGetUpTimer - dt);
             }
             const targetGkZ = (PENALTY_STATE.activeGkDiveDir || 0) * 2.95;
-            gk.z += (targetGkZ - gk.z) * Math.min(1, dt * 8.2);
+            if (gk.diveTimer > 0) {
+                gk.z += (targetGkZ - gk.z) * Math.min(1, dt * 7.8);
+            }
 
-            // Check GK Save collision near goal line
+            // Check GK Save collision near goal line (catch cleanly in hands on moderate pace or parry rockets!)
             const distBallToGk = Math.hypot(BALL.x - gk.x, BALL.z - gk.z);
-            if (!PENALTY_STATE.shotScored && BALL.x > 40.3 && BALL.x < 42.1 && distBallToGk < 1.50 && BALL.y < 2.50) {
-                BALL.vx = -Math.abs(BALL.vx) * 0.42;
-                BALL.vz += (PENALTY_STATE.activeGkDiveDir || (Math.random() > 0.5 ? 1 : -1)) * 6.5;
-                BALL.vy = 2.4;
+            if (!PENALTY_STATE.shotScored && !BALL.owner && BALL.x > 40.3 && BALL.x < 42.1 && distBallToGk < 1.55 && BALL.y < 2.55) {
+                const shotSpd = Math.hypot(BALL.vx, BALL.vz);
+                if (shotSpd < 29.0) {
+                    BALL.owner = gk;
+                    BALL.isShot = false;
+                    BALL.vx = 0; BALL.vy = 0; BALL.vz = 0;
+                    gk.gkHoldingBall = true;
+                    gk.caughtDuringDive = (gk.diveTimer > 0);
+                    gk.gkCatchBlend = (gk.diveTimer > 0) ? 0.12 : 1.0;
+                    if (gk.diveTimer > 0.34) gk.diveTimer = 0.34;
+                } else {
+                    BALL.vx = -Math.abs(BALL.vx) * 0.42;
+                    BALL.vz += (PENALTY_STATE.activeGkDiveDir || (Math.random() > 0.5 ? 1 : -1)) * 6.5;
+                    BALL.vy = 2.4;
+                }
             }
         }
 
@@ -5264,7 +6461,7 @@ function updatePenaltyShootout(dt) {
             showEventBanner(`⚽ PENALTY SCORED! ${TEAMS[selectedTeams[st]].name.toUpperCase()} CONVERTS!`, 1.8);
             PENALTY_STATE.phase = 'RESULT_WAIT';
             PENALTY_STATE.phaseTimer = 0;
-        } else if (!PENALTY_STATE.shotResolved && (PENALTY_STATE.phaseTimer > 2.2 || BALL.x < 28 || (BALL.x > 42.15 && (Math.abs(BALL.z) >= GOAL_W / 2 || BALL.y > GOAL_H)) || Math.hypot(BALL.vx, BALL.vz) < 1.2)) {
+        } else if (!PENALTY_STATE.shotResolved && (BALL.owner === gk || PENALTY_STATE.phaseTimer > 2.2 || BALL.x < 28 || (BALL.x > 42.15 && (Math.abs(BALL.z) >= GOAL_W / 2 || BALL.y > GOAL_H)) || Math.hypot(BALL.vx, BALL.vz) < 1.2)) {
             PENALTY_STATE.shotResolved = true;
             const st = PENALTY_STATE.turnTeam;
             PENALTY_STATE.taken[st]++;
@@ -5275,7 +6472,19 @@ function updatePenaltyShootout(dt) {
         }
     } else if (PENALTY_STATE.phase === 'RESULT_WAIT') {
         players.forEach(p => {
-            if (p.diveTimer > 0) p.diveTimer = Math.max(0, p.diveTimer - dt);
+            if (p.gkHoldingBall) {
+                p.gkCatchBlend = Math.min(1, (p.gkCatchBlend || 0) + dt * 6.5);
+            }
+            if (p.diveTimer > 0) {
+                const prevDive = p.diveTimer;
+                p.diveTimer = Math.max(0, p.diveTimer - dt);
+                if (prevDive > 0 && p.diveTimer === 0 && p.isGK) {
+                    p.gkGetUpDuration = 0.78;
+                    p.gkGetUpTimer = p.gkGetUpDuration;
+                }
+            } else if (p.gkGetUpTimer > 0) {
+                p.gkGetUpTimer = Math.max(0, p.gkGetUpTimer - dt);
+            }
             syncPlayer3D(p, dt);
         });
         updateBallPhysics(dt);
