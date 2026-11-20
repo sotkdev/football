@@ -51,49 +51,73 @@
     <canvas id="three-canvas"></canvas>
     <canvas id="hud-canvas"></canvas>
 
-    <!-- TOP-RIGHT PLAYER PROFILE BAR (Visible on Main Menu) -->
-    <div id="top-profile-bar" class="fixed top-4 right-5 z-40 flex items-center gap-3 px-4 py-2 rounded-2xl glass-panel">
-        <div class="w-3 h-3 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></div>
-        <span class="text-xs font-extrabold uppercase tracking-wider text-slate-400">PLAYER:</span>
-        <input id="player-display-name" type="text" maxlength="14" value="STAR_10"
-            class="bg-slate-900/90 border border-slate-700 rounded-lg px-2.5 py-1 text-xs font-black text-emerald-300 w-28 focus:outline-none focus:border-emerald-400"
-            onchange="savePlayerName(this.value)">
-    </div>
+    <!-- TOP-RIGHT ADMIN BUTTON (Visible ONLY when logged in as Sotiris on menu screens) -->
+    <button id="top-admin-btn" onclick="openAdminModal()"
+        class="hidden fixed top-4 right-5 z-40 btn-arcade flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-rose-500 to-amber-500 text-slate-950 text-xs font-black uppercase tracking-wider border border-amber-200/60 shadow-2xl">
+        🛡️ Admin
+    </button>
 
-    <!-- MAIN MENU OVERLAY (Name Selection, Play vs AI, Play vs Player, World Cup, Euro) -->
+    <!-- MAIN MENU OVERLAY (Account Login, Profile, Play vs AI, Play vs Player, World Cup, Euro) -->
     <div id="menu-screen" class="fixed inset-0 z-30 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm overflow-y-auto">
         <div class="w-full max-w-3xl rounded-3xl glass-panel p-6 md:p-8 border border-emerald-500/25 my-auto space-y-6">
             <div class="flex flex-col md:flex-row items-center justify-between gap-4 pb-5 border-b border-slate-800">
                 <div class="text-center md:text-left">
-                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-[11px] font-black tracking-widest uppercase mb-1.5">
-                        ⚽ EA FC & eFOOTBALL COMPETITIVE ENGINE • VERSION 2.0
-                    </div>
                     <h1 class="text-3xl md:text-5xl font-black tracking-tight text-white">
                         FOOTBALL <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">STARS</span>
                     </h1>
                 </div>
-                <div class="flex gap-2">
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                    <button id="menu-profile-btn" onclick="openProfileModal()" class="btn-arcade flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-xs font-black uppercase tracking-wider text-emerald-300 border border-emerald-400/40">
+                        <span id="menu-profile-btn-avatar" class="w-5 h-5 rounded-full overflow-hidden inline-flex items-center justify-center bg-slate-900">👤</span>
+                        <span>Profile</span>
+                    </button>
                     <button onclick="openSettingsModal()" class="btn-arcade px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-black uppercase tracking-wider text-slate-200 border border-slate-600">
                         ⚙️ Settings & Controls
                     </button>
                 </div>
             </div>
 
-            <!-- PLAYER NAME SELECTION -->
-            <div class="p-4 md:p-5 rounded-2xl bg-slate-900/95 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg">
+            <!-- PLAYER ACCOUNT LOGIN / LOGGED-IN BANNER -->
+            <div id="menu-account-logged-out" class="p-4 md:p-5 rounded-2xl bg-slate-900/95 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-3.5 shadow-lg">
                 <div class="flex items-center gap-3.5">
-                    <div class="w-11 h-11 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-xl shadow">
-                        👤
+                    <div class="w-11 h-11 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-xl shadow shrink-0">
+                        🔐
                     </div>
                     <div class="text-left">
-                        <div class="text-[11px] font-black uppercase tracking-widest text-emerald-400">PLAYER PROFILE NAME</div>
-                        <div class="text-xs font-bold text-slate-400">Displayed above your player, on leaderboards & tournament brackets</div>
+                        <div class="text-[11px] font-black uppercase tracking-widest text-emerald-400">PLAYER ACCOUNT</div>
+                        <div class="text-xs font-bold text-slate-400">Enter your name to sign in or create a 6-digit PIN account</div>
                     </div>
                 </div>
-                <input id="main-menu-player-name" type="text" maxlength="14" value="STAR_10"
-                    placeholder="ENTER NAME"
-                    class="bg-slate-950 border-2 border-emerald-500/40 focus:border-emerald-400 rounded-xl px-4 py-2.5 text-base font-black text-emerald-300 tracking-wider uppercase w-full sm:w-52 text-center focus:outline-none shadow-inner"
-                    oninput="savePlayerName(this.value)" onchange="savePlayerName(this.value)">
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <input id="main-menu-player-name" type="text" maxlength="14" value=""
+                        placeholder="ENTER NAME"
+                        class="bg-slate-950 border-2 border-emerald-500/40 focus:border-emerald-400 rounded-xl px-3.5 py-2.5 text-sm font-black text-emerald-300 tracking-wider uppercase flex-1 sm:w-44 text-center focus:outline-none shadow-inner"
+                        onkeydown="if(event.key==='Enter') beginAccountAuthFlow()">
+                    <button id="btn-account-continue" onclick="beginAccountAuthFlow()" class="btn-arcade px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black uppercase tracking-wider shrink-0">
+                        Login / Create
+                    </button>
+                </div>
+            </div>
+
+            <div id="menu-account-logged-in" class="hidden p-4 md:p-5 rounded-2xl bg-slate-900/95 border border-emerald-500/40 flex flex-col sm:flex-row items-center justify-between gap-3.5 shadow-lg">
+                <div class="flex items-center gap-3.5">
+                    <div id="menu-logged-avatar" onclick="openProfileModal()" title="Open Profile" class="w-12 h-12 rounded-2xl bg-slate-950 border-2 border-emerald-400/60 overflow-hidden flex items-center justify-center shadow cursor-pointer shrink-0"></div>
+                    <div class="text-left">
+                        <div class="flex items-center gap-2">
+                            <span id="menu-logged-name" class="text-lg font-black text-white tracking-wide uppercase">PLAYER</span>
+                            <span id="menu-logged-rank-badge" class="px-2 py-0.5 rounded-md bg-amber-400/20 border border-amber-400/40 text-[10px] font-black text-amber-300 uppercase">BRONZE II</span>
+                        </div>
+                        <div id="menu-logged-sub" class="text-xs font-bold text-slate-400">ELO 1000 • 0W - 0D - 0L</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="openProfileModal()" class="btn-arcade px-3.5 py-2 rounded-xl bg-emerald-500 text-slate-950 text-xs font-black uppercase tracking-wider">
+                        👤 View Profile
+                    </button>
+                    <button onclick="logoutCurrentProfile()" class="btn-arcade px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-black uppercase tracking-wider border border-slate-700">
+                        Switch
+                    </button>
+                </div>
             </div>
 
             <!-- MAIN GAME MODES (PLAY VS AI, PLAY VS PLAYER, WORLD CUP, EURO) -->
@@ -102,7 +126,6 @@
                     <div>
                         <div class="text-[10px] font-black uppercase tracking-widest text-slate-950/75 mb-0.5">EXHIBITION MATCH</div>
                         <div class="text-xl md:text-2xl font-black uppercase tracking-tight">⚡ Play vs AI</div>
-                        <div class="text-xs font-bold text-slate-950/80 mt-1">Select Home & Away Squads → Match Settings</div>
                     </div>
                     <span class="text-3xl group-hover:translate-x-1 transition-transform">▶</span>
                 </button>
@@ -111,7 +134,6 @@
                     <div>
                         <div class="text-[10px] font-black uppercase tracking-widest text-cyan-100/80 mb-0.5">ONLINE MULTIPLAYER</div>
                         <div class="text-xl md:text-2xl font-black uppercase tracking-tight">🌐 Play vs Player</div>
-                        <div class="text-xs font-bold text-cyan-100/85 mt-1">Host or Join Live P2P Room Lobby</div>
                     </div>
                     <span class="text-3xl group-hover:translate-x-1 transition-transform">▶</span>
                 </button>
@@ -120,7 +142,6 @@
                     <div>
                         <div class="text-[10px] font-black uppercase tracking-widest text-slate-950/75 mb-0.5">32 NATIONS • 8 GROUPS OF 4</div>
                         <div class="text-xl md:text-2xl font-black uppercase tracking-tight">🏆 World Cup</div>
-                        <div class="text-xs font-bold text-slate-950/80 mt-1">Group Stage → R16 → QF → SF → Final</div>
                     </div>
                     <span class="text-3xl group-hover:translate-x-1 transition-transform">▶</span>
                 </button>
@@ -129,7 +150,6 @@
                     <div>
                         <div class="text-[10px] font-black uppercase tracking-widest text-sky-200/90 mb-0.5">EUROPEAN NATIONS ONLY • 8 GROUPS</div>
                         <div class="text-xl md:text-2xl font-black uppercase tracking-tight">🇪🇺 Euro</div>
-                        <div class="text-xs font-bold text-sky-100/85 mt-1">UEFA Group Tables → Knockouts & Penalties</div>
                     </div>
                     <span class="text-3xl group-hover:translate-x-1 transition-transform">▶</span>
                 </button>
@@ -585,45 +605,199 @@
         </div>
     </div>
 
+    <!-- 6-DIGIT PIN ACCOUNT LOGIN / REGISTRATION MODAL -->
+    <div id="pin-auth-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+        <div class="w-full max-w-md rounded-3xl glass-panel p-6 border border-emerald-500/35 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                <h2 id="pin-modal-title" class="text-lg font-black text-white uppercase tracking-wide">🔐 Player Login</h2>
+                <button onclick="closePinAuthModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-black">✕</button>
+            </div>
+            <div class="space-y-1">
+                <div class="text-xs font-black uppercase tracking-widest text-emerald-400" id="pin-modal-name-badge">PLAYER</div>
+                <p id="pin-modal-subtitle" class="text-xs font-bold text-slate-300">Enter your 6-digit PIN to sign in.</p>
+            </div>
+            <div id="pin-modal-error" class="hidden p-3 rounded-xl bg-rose-500/20 border border-rose-500/40 text-xs font-bold text-rose-200"></div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">6-DIGIT PIN</label>
+                    <input id="pin-input-main" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off"
+                        placeholder="••••••"
+                        class="w-full bg-slate-950 border-2 border-slate-700 focus:border-emerald-400 rounded-xl px-4 py-3 text-2xl font-black tracking-[0.5em] text-center text-emerald-300 focus:outline-none"
+                        oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6)"
+                        onkeydown="if(event.key==='Enter') submitPinAuthModal()">
+                </div>
+                <div id="pin-confirm-wrap" class="hidden">
+                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">CONFIRM 6-DIGIT PIN</label>
+                    <input id="pin-input-confirm" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off"
+                        placeholder="••••••"
+                        class="w-full bg-slate-950 border-2 border-slate-700 focus:border-emerald-400 rounded-xl px-4 py-3 text-2xl font-black tracking-[0.5em] text-center text-emerald-300 focus:outline-none"
+                        oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6)"
+                        onkeydown="if(event.key==='Enter') submitPinAuthModal()">
+                </div>
+            </div>
+            <div class="text-[11px] font-bold text-slate-400 flex items-center gap-1.5">
+                <span>🔒</span>
+                <span>PINs are salted &amp; cryptographically hashed before storage.</span>
+            </div>
+            <button id="pin-modal-submit-btn" onclick="submitPinAuthModal()" class="btn-arcade w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black uppercase tracking-wider text-sm">
+                ▶ Continue
+            </button>
+        </div>
+    </div>
+
+    <!-- PLAYER PROFILE & CAREER STATS MODAL -->
+    <div id="profile-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 md:p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
+        <div class="w-full max-w-3xl rounded-3xl glass-panel p-5 md:p-7 border border-emerald-500/35 my-auto max-h-[92vh] overflow-y-auto space-y-5">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div>
+                    <div class="text-[10px] font-black uppercase tracking-widest text-emerald-400">CAREER DOSSIER &amp; RANKING</div>
+                    <h2 class="text-2xl font-black text-white uppercase tracking-tight">👤 Player Profile</h2>
+                </div>
+                <button onclick="closeProfileModal()" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-black">✕</button>
+            </div>
+
+            <!-- Logged-out state inside Profile modal -->
+            <div id="profile-logged-out-view" class="hidden p-8 rounded-2xl bg-slate-900/90 border border-slate-800 text-center space-y-4">
+                <div class="text-4xl">🔐</div>
+                <div class="text-lg font-black text-white uppercase">Sign In To Track Your Career</div>
+                <p class="text-xs font-bold text-slate-400 max-w-md mx-auto">Enter your player name on the Main Menu and create a 6-digit PIN to unlock profile pictures, ELO rank, tournament records, and lifetime match stats.</p>
+                <button onclick="closeProfileModal(); const el=document.getElementById('main-menu-player-name'); if(el) el.focus();" class="btn-arcade px-6 py-3 rounded-xl bg-emerald-500 text-slate-950 text-xs font-black uppercase tracking-wider">
+                    Go To Account Login
+                </button>
+            </div>
+
+            <!-- Logged-in full Profile View -->
+            <div id="profile-logged-in-view" class="space-y-5">
+                <!-- Player Hero Card -->
+                <div class="p-4 md:p-5 rounded-2xl bg-slate-900/95 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div class="flex items-center gap-4">
+                        <div id="profile-hero-avatar" class="w-20 h-20 rounded-2xl bg-slate-950 border-2 border-emerald-400/70 overflow-hidden flex items-center justify-center shadow-xl shrink-0"></div>
+                        <div class="text-left space-y-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h3 id="profile-hero-name" class="text-2xl font-black text-white uppercase tracking-wide">PLAYER</h3>
+                                <span id="profile-hero-rank" class="px-2.5 py-0.5 rounded-lg bg-amber-400/20 border border-amber-400/40 text-xs font-black text-amber-300 uppercase">BRONZE II</span>
+                            </div>
+                            <div id="profile-hero-since" class="text-[11px] font-bold text-slate-400">Member since —</div>
+                            <div class="flex items-center gap-2 pt-1">
+                                <span class="text-xs font-black text-emerald-400" id="profile-hero-elo">1000 ELO</span>
+                                <div class="w-32 h-2 rounded-full bg-slate-800 overflow-hidden">
+                                    <div id="profile-elo-progress" class="h-full bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full" style="width:25%"></div>
+                                </div>
+                                <span id="profile-next-rank-label" class="text-[10px] font-bold text-slate-400">Next: 1050</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="logoutCurrentProfile(); closeProfileModal();" class="btn-arcade px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-rose-950 text-rose-300 text-xs font-black uppercase border border-slate-700">
+                            🚪 Logout
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 12 Football Profile Pictures Picker -->
+                <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-black uppercase tracking-wider text-emerald-400">🖼️ Choose Football Profile Picture (12 Avatars)</span>
+                        <span id="profile-avatar-saved-msg" class="text-[11px] font-black text-emerald-300 hidden">✓ Saved!</span>
+                    </div>
+                    <div id="profile-avatar-grid" class="grid grid-cols-4 sm:grid-cols-6 gap-2.5"></div>
+                </div>
+
+                <!-- Headline Career Stat Tiles -->
+                <div id="profile-headline-stats" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+
+                <!-- Mode Records & Tournament Best Finishes -->
+                <div id="profile-mode-stats" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+
+                <!-- Extended Football Telemetry -->
+                <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2.5">
+                    <div class="text-xs font-black uppercase tracking-wider text-cyan-400">📈 Career Match Telemetry</div>
+                    <div id="profile-telemetry-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SOTIRIS ADMIN PANEL MODAL -->
+    <div id="admin-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 md:p-4 bg-slate-950/90 backdrop-blur-md overflow-y-auto">
+        <div class="w-full max-w-4xl rounded-3xl glass-panel p-5 md:p-6 border border-amber-400/40 my-auto max-h-[92vh] flex flex-col space-y-4">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800 shrink-0">
+                <div>
+                    <div class="text-[10px] font-black uppercase tracking-widest text-amber-400">SUPERUSER ACCESS • SOTIRIS</div>
+                    <h2 class="text-2xl font-black text-white uppercase tracking-tight">🛡️ Admin Control Panel</h2>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="loadAdminUserList()" class="btn-arcade px-3.5 py-2 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-300 text-xs font-black uppercase">
+                        ↻ Refresh Users
+                    </button>
+                    <button onclick="toggleAdminRulesBox()" class="btn-arcade px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-amber-300 text-xs font-black uppercase">
+                        🔒 DB Rules
+                    </button>
+                    <button onclick="closeAdminModal()" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-black">✕</button>
+                </div>
+            </div>
+
+            <div id="admin-toast" class="hidden p-3 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-xs font-black text-emerald-200"></div>
+
+            <!-- Collapsible Firebase RTDB Security Rules Box -->
+            <div id="admin-rules-box" class="hidden p-3.5 rounded-2xl bg-slate-950 border border-amber-400/35 space-y-2 shrink-0">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-black uppercase text-amber-300">🔒 Hardened Firebase Realtime Database Rules (Paste into Firebase Console → Realtime Database → Rules)</span>
+                    <button onclick="copyFirebaseSecurityRules()" class="px-3 py-1 rounded-lg bg-amber-400 text-slate-950 text-[11px] font-black uppercase">Copy JSON</button>
+                </div>
+                <pre id="admin-rules-code" class="text-[11px] text-emerald-300 bg-slate-900 p-3 rounded-xl overflow-x-auto max-h-40 select-text font-mono"></pre>
+            </div>
+
+            <!-- Summary + Search -->
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
+                <div id="admin-summary-badges" class="flex flex-wrap gap-2 text-xs font-black"></div>
+                <input id="admin-user-search" type="text" placeholder="Search player name..." oninput="renderAdminUserRows()"
+                    class="bg-slate-950 border border-slate-700 focus:border-amber-400 rounded-xl px-3.5 py-2 text-xs font-bold text-white w-full sm:w-56 focus:outline-none">
+            </div>
+
+            <!-- Scrollable Users List -->
+            <div id="admin-users-list" class="overflow-y-auto flex-1 space-y-2.5 pr-1 min-h-[220px]">
+                <div class="text-center text-xs font-bold text-slate-400 py-8">Loading users...</div>
+            </div>
+        </div>
+    </div>
+
     <!-- IN-MATCH HUD OVERLAY -->
     <div id="match-hud" class="hidden fixed inset-0 pointer-events-none z-20">
-        <!-- TOP-LEFT EA FC BROADCAST SCOREBUG (STRICT FIXED WIDTH SO CLOCK NEVER CHANGES SHAPE) -->
-        <div class="absolute top-4 left-5 w-[240px] flex flex-col shadow-2xl rounded-xl overflow-hidden border border-white/15 shrink-0">
-            <div class="bg-slate-950/95 px-3 py-1 text-[10px] font-black tracking-widest uppercase text-emerald-400 flex justify-between items-center">
+        <!-- TOP-LEFT BROADCAST SCOREBUG (ENLARGED WITH TEAM-COLORED SCORES) -->
+        <div class="absolute top-4 left-5 w-[294px] flex flex-col shadow-2xl rounded-2xl overflow-hidden border border-white/20 shrink-0">
+            <div class="bg-slate-950/95 px-3.5 py-1.5 text-[11px] font-black tracking-widest uppercase text-emerald-400 flex justify-between items-center">
                 <span id="hud-mode-label" class="truncate">COMPETITIVE</span>
-                <span id="hud-half-label" class="text-slate-400 shrink-0">1ST HALF</span>
+                <span id="hud-half-label" class="text-slate-300 shrink-0">1ST HALF</span>
             </div>
             <div class="flex items-stretch bg-slate-900/95 w-full">
-                <div id="hud-clock" class="tabular-clock w-[78px] min-w-[78px] max-w-[78px] shrink-0 bg-emerald-400 text-slate-950 font-black text-lg flex items-center justify-center tracking-tight">
+                <div id="hud-clock" class="tabular-clock w-[92px] min-w-[92px] max-w-[92px] shrink-0 bg-emerald-400 text-slate-950 font-black text-xl flex items-center justify-center tracking-tight">
                     00:00
                 </div>
                 <div class="flex flex-col divide-y divide-slate-800 flex-1 min-w-0">
-                    <div class="flex items-center justify-between px-3 py-1.5">
-                        <div class="flex items-center gap-2 min-w-0">
-                            <span id="scorebug-home-flag" class="w-6 h-4 rounded-sm overflow-hidden inline-flex items-center justify-center border border-white/20 shrink-0"></span>
-                            <span id="scorebug-home-code" class="text-sm font-black text-white tracking-wider truncate">ARG</span>
+                    <div class="flex items-center justify-between px-3.5 py-2 gap-2">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <span id="scorebug-home-swatch" class="w-1.5 h-5 rounded-full shrink-0" style="background:#38bdf8"></span>
+                            <span id="scorebug-home-flag" class="w-8 h-5 rounded-sm overflow-hidden inline-flex items-center justify-center border border-white/25 shrink-0"></span>
+                            <span id="scorebug-home-code" class="text-base font-black text-white tracking-wider truncate">ARG</span>
                         </div>
-                        <span id="scorebug-home-score" class="tabular-clock text-base font-black text-emerald-400 w-6 text-right shrink-0">0</span>
+                        <span id="scorebug-home-score" class="tabular-clock text-xl font-black min-w-[34px] text-center px-2 py-0.5 rounded-lg bg-slate-950/75 border border-white/10 shrink-0" style="color:#38bdf8">0</span>
                     </div>
-                    <div class="flex items-center justify-between px-3 py-1.5">
-                        <div class="flex items-center gap-2 min-w-0">
-                            <span id="scorebug-away-flag" class="w-6 h-4 rounded-sm overflow-hidden inline-flex items-center justify-center border border-white/20 shrink-0"></span>
-                            <span id="scorebug-away-code" class="text-sm font-black text-white tracking-wider truncate">FRA</span>
+                    <div class="flex items-center justify-between px-3.5 py-2 gap-2">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <span id="scorebug-away-swatch" class="w-1.5 h-5 rounded-full shrink-0" style="background:#3b82f6"></span>
+                            <span id="scorebug-away-flag" class="w-8 h-5 rounded-sm overflow-hidden inline-flex items-center justify-center border border-white/25 shrink-0"></span>
+                            <span id="scorebug-away-code" class="text-base font-black text-white tracking-wider truncate">FRA</span>
                         </div>
-                        <span id="scorebug-away-score" class="tabular-clock text-base font-black text-cyan-400 w-6 text-right shrink-0">0</span>
+                        <span id="scorebug-away-score" class="tabular-clock text-xl font-black min-w-[34px] text-center px-2 py-0.5 rounded-lg bg-slate-950/75 border border-white/10 shrink-0" style="color:#60a5fa">0</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- TOP-RIGHT FIXED-WIDTH TIME & PAUSE BAR -->
+        <!-- TOP-RIGHT PAUSE BUTTON ONLY (Timer removed) -->
         <div class="absolute top-4 right-5 pointer-events-auto flex items-center gap-2">
-            <div class="glass-panel px-3 py-2 rounded-xl flex items-center gap-2 w-[112px] min-w-[112px] max-w-[112px] justify-between shrink-0">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
-                <span id="hud-top-right-clock" class="tabular-clock text-xs font-black text-white tracking-wider w-[44px] text-center shrink-0">00:00</span>
-                <span id="hud-top-right-half" class="text-[10px] font-extrabold text-emerald-400 shrink-0">1H</span>
-            </div>
-            <button onclick="togglePauseMatch()" class="btn-arcade px-3.5 py-2 rounded-xl glass-panel text-xs font-black uppercase text-slate-200 shrink-0">
+            <button onclick="togglePauseMatch()" class="btn-arcade px-4 py-2.5 rounded-xl glass-panel text-xs font-black uppercase text-slate-200 shrink-0">
                 ⏸ Pause
             </button>
         </div>
@@ -803,13 +977,30 @@ function resolveSecureFirebaseConfig() {
 }
 
 let rtdb = null;
+let fbAuthUid = null;
+let _fbAuthReadyPromise = null;
+
 try {
     const _cfg = resolveSecureFirebaseConfig();
     if (!firebase.apps.length) firebase.initializeApp(_cfg);
     rtdb = firebase.database();
-    if (firebase.auth) firebase.auth().signInAnonymously().catch(() => {});
+    if (firebase.auth) {
+        _fbAuthReadyPromise = firebase.auth().signInAnonymously()
+            .then(cred => { fbAuthUid = cred && cred.user ? cred.user.uid : null; return fbAuthUid; })
+            .catch(() => null);
+    }
 } catch (err) {
     console.warn("Multiplayer backend initialization skipped.");
+}
+
+async function ensureFirebaseAuth() {
+    if (_fbAuthReadyPromise) {
+        try { await _fbAuthReadyPromise; } catch (e) {}
+    }
+    if (firebase && firebase.auth && firebase.auth().currentUser) {
+        fbAuthUid = firebase.auth().currentUser.uid;
+    }
+    return fbAuthUid;
 }
 
 const ONLINE = {
@@ -825,10 +1016,1055 @@ const ONLINE = {
 function savePlayerName(val) {
     const clean = (val || 'STAR_10').trim().toUpperCase().slice(0, 14);
     ONLINE.playerName = clean || 'STAR_10';
-    const topInp = document.getElementById('player-display-name');
-    if (topInp && document.activeElement !== topInp) topInp.value = ONLINE.playerName;
     const menuInp = document.getElementById('main-menu-player-name');
     if (menuInp && document.activeElement !== menuInp) menuInp.value = ONLINE.playerName;
+}
+
+// ============================================================================
+// 1B. CRYPTOGRAPHIC PIN HASHING, PLAYER PROFILES, ELO & ADMIN ("SOTIRIS")
+// ============================================================================
+const LOCAL_ACCOUNTS_KEY = 'fs_secure_accounts_v2';
+const SESSION_KEY = 'fs_active_session_v2';
+const _PIN_ATTEMPTS = {}; // Rate-limit failed logins per nameKey
+
+// Pure-JS SHA-256 fallback (used only when window.crypto.subtle is unavailable, e.g., local file://)
+function _sha256Js(ascii) {
+    const rightRotate = (v, a) => (v >>> a) | (v << (32 - a));
+    const maxWord = Math.pow(2, 32);
+    let result = '';
+    const words = [];
+    const asciiBitLength = ascii.length * 8;
+    const hash = _sha256Js._h ? _sha256Js._h.slice() : [];
+    const k = _sha256Js._k ? _sha256Js._k.slice() : [];
+    if (!hash.length) {
+        let primeCounter = 0;
+        const isComposite = {};
+        for (let candidate = 2; primeCounter < 64; candidate++) {
+            if (!isComposite[candidate]) {
+                for (let i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+                hash[primeCounter] = (Math.pow(candidate, 0.5) * maxWord) | 0;
+                k[primeCounter++] = (Math.pow(candidate, 1 / 3) * maxWord) | 0;
+            }
+        }
+        _sha256Js._h = hash.slice(0, 8);
+        _sha256Js._k = k.slice();
+    }
+    const h = _sha256Js._h.slice();
+    const K = _sha256Js._k;
+    ascii += '\x80';
+    while (ascii.length % 64 - 56) ascii += '\x00';
+    for (let i = 0; i < ascii.length; i++) {
+        const j = ascii.charCodeAt(i);
+        words[i >> 2] |= j << ((3 - i) % 4) * 8;
+    }
+    words[words.length] = ((asciiBitLength / maxWord) | 0);
+    words[words.length] = (asciiBitLength | 0);
+    for (let j = 0; j < words.length;) {
+        const w = words.slice(j, j += 16);
+        const oldHash = h.slice();
+        for (let i = 0; i < 64; i++) {
+            const w15 = w[i - 15], w2 = w[i - 2];
+            const a = h[0], e = h[4];
+            const temp1 = h[7]
+                + (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25))
+                + ((e & h[5]) ^ ((~e) & h[6]))
+                + K[i]
+                + (w[i] = (i < 16) ? w[i] : (
+                    w[i - 16]
+                    + (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3))
+                    + w[i - 7]
+                    + (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))
+                ) | 0);
+            const temp2 = (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22))
+                + ((a & h[1]) ^ (a & h[2]) ^ (h[1] & h[2]));
+            h.unshift((temp1 + temp2) | 0);
+            h[4] = (h[4] + temp1) | 0;
+            h.pop();
+        }
+        for (let i = 0; i < 8; i++) h[i] = (h[i] + oldHash[i]) | 0;
+    }
+    for (let i = 0; i < 8; i++) {
+        for (let j = 3; j + 1; j--) {
+            const b = (h[i] >> (j * 8)) & 255;
+            result += ((b < 16) ? '0' : '') + b.toString(16);
+        }
+    }
+    return result;
+}
+
+function generateCryptoSaltHex(byteLen = 16) {
+    const arr = new Uint8Array(byteLen);
+    if (window.crypto && window.crypto.getRandomValues) {
+        window.crypto.getRandomValues(arr);
+    } else {
+        for (let i = 0; i < byteLen; i++) arr[i] = Math.floor(Math.random() * 256);
+    }
+    return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function hashPinSecure(pin, salt, forcedAlgo = null) {
+    const cleanPin = String(pin || '');
+    const useSubtle = (forcedAlgo === 'PBKDF2-SHA256') || (!forcedAlgo && !!(window.crypto && window.crypto.subtle));
+    if (useSubtle && window.crypto && window.crypto.subtle) {
+        try {
+            const enc = new TextEncoder();
+            const keyMaterial = await window.crypto.subtle.importKey(
+                'raw', enc.encode(`FS_V2_PEPPER:${cleanPin}`), 'PBKDF2', false, ['deriveBits']
+            );
+            const bits = await window.crypto.subtle.deriveBits(
+                { name: 'PBKDF2', salt: enc.encode(salt), iterations: 120000, hash: 'SHA-256' },
+                keyMaterial, 256
+            );
+            const hex = Array.from(new Uint8Array(bits), b => b.toString(16).padStart(2, '0')).join('');
+            return { hash: hex, algo: 'PBKDF2-SHA256' };
+        } catch (e) {}
+    }
+    // Hardened iterated salted SHA-256 fallback (works identically on file:// and https://)
+    let digest = _sha256Js(`FS_V2_PEPPER:${salt}:${cleanPin}`);
+    for (let i = 0; i < 4000; i++) {
+        digest = _sha256Js(`${digest}:${salt}:${i}`);
+    }
+    return { hash: digest, algo: 'ITER-SHA256-4K' };
+}
+
+function timingSafeEqualStr(a, b) {
+    if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+    let diff = 0;
+    for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    return diff === 0;
+}
+
+function normalizeAccountKey(rawName) {
+    const display = (rawName || '').trim().replace(/[^A-Za-z0-9 _-]/g, '').slice(0, 14).trim();
+    const key = display.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+    return { display, key };
+}
+
+// 12 Custom Football-Related Profile Pictures (Crisp Vector SVGs)
+const FOOTBALL_AVATARS = [
+    {
+        id: 0, label: 'Match Ball',
+        svg: `<svg viewBox="0 0 64 64" class="w-full h-full"><defs><linearGradient id="av0" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#065f46"/><stop offset="100%" stop-color="#0f172a"/></linearGradient></defs><rect width="64" height="64" fill="url(#av0)"/><circle cx="32" cy="32" r="20" fill="#f8fafc" stroke="#1e293b" stroke-width="2.5"/><polygon points="32,22 40,28 37,37 27,37 24,28" fill="#0f172a"/><path d="M32,12 L32,22 M40,28 L50,24 M37,37 L44,47 M27,37 L20,47 M24,28 L14,24" stroke="#0f172a" stroke-width="2.2"/></svg>`
+    },
+    {
+        id: 1, label: 'Gold Trophy',
+        svg: `<svg viewBox="0 0 64 64" class="w-full h-full"><defs><linearGradient id="av1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#78350f"/><stop offset="100%" stop-color="#0f172a"/></linearGradient></defs><rect width="64" height="64" fill="url(#av1)"/><path d="M21,16 H43 V27 C43,35 38,40 32,40 C26,40 21,35 21,27 Z" fill="#facc15" stroke="#fef08a" stroke-width="1.5"/><path d="M21,20 H14 C14,29 17,32 22,32 M43,20 H50 C50,29 47,32 42,32" fill="none" stroke="#f59e0b" stroke-width="3"/><rect x="28" y="39" width="8" height="9" fill="#eab308"/><rect x="21" y="47" width="22" height="6" rx="2" fill="#f59e0b"/></svg>`
+    },
+    {
+        id: 2, label: 'Speed Cleat',
+        svg: `<svg viewBox="0 0 64 64" class="w-full h-full"><defs><linearGradient id="av2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0c4a6e"/><stop offset="100%" stop-color="#0f172a"/></linearGradient></defs><rect width="64" height="64" fill="url(#av2)"/><path d="M12,38 L16,22 L27,24 L35,32 L52,36 C54,37 54,42 50,43 L13,43 Z" fill="#38bdf8" stroke="#e0f2fe" stroke-width="1.8"/><path d="M25,27 L34,36 M30,29 L39,37" stroke="#0f172a" stroke-width="2.5"/><rect x="16" y="43" width="4" height="5" fill="#facc15"/><rect x="27" y="43" width="4" height="5" fill="#facc15"/><rect x="38" y="43" width="4" height="5" fill="#facc15"/><rect x="46" y="43" width="4" height="5" fill="#facc15"/></svg>`
+    },
+    {
+        id: 3, label: 'Keeper Gloves',
+        svg: `<svg viewBox="0 0 64 64" class="w-full h-full"><defs><linearGradient id="av3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#7c2d12"/><stop offset="100%" stop-color="#0f172a"/></linearGradient></defs><rect width="64" height="64" fill="url(#av3)"/><path d="M20,48 V30 C20,25 23,16 26,16 C28,16 28,24 28,24 C28,24 30,14 33,14 C35,14 35,24 35,24 C35,24 37,15 40,16 C42,17 41,26 41,26 C41,26 45,20 47,22 C49,24 46,35 44,41 V48 Z" fill="#f8fafc" stroke="#f97316" stroke-width="2.2"/><rect x="19" y="45" width="26" height="7" rx="2" fill="#f97316"/></svg>`
+    },
+    {
+        id: 4, label: 'Captain Band',
+        svg: `<svg viewBox="0 0 64 64" class="w-full h-full"><defs><linearGradient id="av4" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1e3a8a"/><stop offset="100%" stop-color="#0f172a"/></linearGradient></defs><rect width="64" height="64" fill="url(#av4)"/><rect x="8" y="18" width="48" height="28" rx="6" fill="#facc15" stroke="#ffffff" stroke-width="2.5"/><rect x="8" y="25" width="48" height="14" fill="#0f172a"/><text x="32" y="38" text-anchor="middle" font-family="Inter,sans-serif" font-weight="900" font-size="22" fill="#facc15">C</text></svg>`
+    },
+    {
+        id: 5, label: 'Stadium Lights',
+        svg: `<svg viewBox="0 0 64 64" class="w-full h-full"><defs><linearGradient id="av5" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1e1b4b"/><stop offset="100%" stop-color="#064e3b"/></linearGradient></defs><rect width="64" height="64" fill="url(#av5)"/><path d="M10,42 C10,30 54,30 54,42 L56,52 H8 Z" fill="#334155" stroke="#94a3b8" stroke-width="2"/><ellipse cx="32" cy="44" rx="18" ry="6" fill="#10b981"/><rect x="14" y="12" width="12" height="7" rx="2" fill="#fef08a"/><rect x="38" y="12" width="12" height="7" rx="2" fill="#fef08a"/><line x1="20" y1="19" x2="20" y2="33" stroke="#cbd5e1" stroke-width="2.5"/><line x1="44" y1="19" x2="44" y2="33" stroke="#cbd5e1" stroke-width="2.5"/></svg>`
+    },
+    {
+        id: 6, label: 'Pitch King',
+        svg: `<svg viewBox="0 0 64 64" class="w-full h-full"><defs><linearGradient id="av6" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#581c87"/><stop offset="100%" stop-color="#0f172a"/></linearGradient></defs><rect width="64" height="64" fill="url(#av6)"/><polygon points="12,44 16,22 26,32 32,16 38,32 48,22 52,44" fill="#facc15" stroke="#fef08a" stroke-width="2"/><rect x="12" y="44" width="40" height="7" rx="2" fill="#eab308"/><circle cx="32" cy="14" r="3" fill="#38bdf8"/><circle cx="15" cy="20" r="2.5" fill="#f43f5e"/><circle cx="49" cy="20" r="2.5" fill="#f43f5e"/></svg>`
+    },
+    {
+        id: 7, label: 'Rocket Shot',
+        svg: `<svg viewBox="0 0 64 64" class="w-full h-full"><defs><linearGradient id="av7" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#7f1d1d"/><stop offset="100%" stop-color="#0f172a"/></linearGradient></defs><rect width="64" height="64" fill="url(#av7)"/><path d="M10,50 C14,32 22,20 40,14 C38,24 46,24 52,20 C48,38 36,48 10,50 Z" fill="#f97316"/><path d="M16,46 C20,34 28,26 42,22 C40,34 32,42 16,46 Z" fill="#facc15"/><circle cx="40" cy="24" r="10" fill="#ffffff" stroke="#0f172a" stroke-width="2"/><polygon points="40,19 44,22 42.5,27 37.5,27 36,22" fill="#0f172a"/></svg>`
+    },
+    {
+        id: 8, label: 'Iron Wall',
+        svg: `<svg viewBox="0 0 64 64" class="w-full h-full"><defs><linearGradient id="av8" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0f766e"/><stop offset="100%" stop-color="#0f172a"/></linearGradient></defs><rect width="64" height="64" fill="url(#av8)"/><path d="M32,10 L50,17 V32 C50,43 42,51 32,55 C22,51 14,43 14,32 V17 Z" fill="#1e293b" stroke="#34d399" stroke-width="3"/><path d="M32,14 L46,19.5 V31.5 C46,40 40,46.5 32,50 V14 Z" fill="#10b981" opacity="0.45"/><circle cx="32" cy="31" r="7" fill="#f8fafc"/></svg>`
+    },
+    {
+        id: 9, label: 'Gold Medal',
+        svg: `<svg viewBox="0 0 64 64" class="w-full h-full"><defs><linearGradient id="av9" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#881337"/><stop offset="100%" stop-color="#0f172a"/></linearGradient></defs><rect width="64" height="64" fill="url(#av9)"/><polygon points="20,8 30,8 34,26 26,26" fill="#ef4444"/><polygon points="44,8 34,8 30,26 38,26" fill="#3b82f6"/><circle cx="32" cy="39" r="15" fill="#facc15" stroke="#fef08a" stroke-width="2.5"/><polygon points="32,29 35,36 42,36.5 36.5,41 38.5,48 32,44 25.5,48 27.5,41 22,36.5 29,36" fill="#92400e"/></svg>`
+    },
+    {
+        id: 10, label: 'Lightning',
+        svg: `<svg viewBox="0 0 64 64" class="w-full h-full"><defs><linearGradient id="av10" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#312e81"/><stop offset="100%" stop-color="#0f172a"/></linearGradient></defs><rect width="64" height="64" fill="url(#av10)"/><circle cx="32" cy="32" r="22" fill="#0ea5e9" opacity="0.22"/><polygon points="36,8 16,35 30,35 26,56 48,27 34,27" fill="#facc15" stroke="#fef08a" stroke-width="2"/></svg>`
+    },
+    {
+        id: 11, label: 'Match Whistle',
+        svg: `<svg viewBox="0 0 64 64" class="w-full h-full"><defs><linearGradient id="av11" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#334155"/><stop offset="100%" stop-color="#020617"/></linearGradient></defs><rect width="64" height="64" fill="url(#av11)"/><path d="M14,32 C14,24 22,20 31,20 H50 V29 L41,31 C40,40 34,46 26,46 C19,46 14,40 14,32 Z" fill="#e2e8f0" stroke="#94a3b8" stroke-width="2"/><circle cx="26" cy="33" r="6" fill="#0f172a"/><path d="M44,14 L49,10 M52,18 L57,17 M51,26 L56,28" stroke="#34d399" stroke-width="2.5" stroke-linecap="round"/></svg>`
+    }
+];
+
+function renderAvatarSVG(avatarId) {
+    const idx = Math.max(0, Math.min(FOOTBALL_AVATARS.length - 1, Number(avatarId) || 0));
+    return FOOTBALL_AVATARS[idx].svg;
+}
+
+const TOURNAMENT_STAGE_LABELS = [
+    'Not Played',
+    'Group Stage',
+    'Round of 16',
+    'Quarter-Final',
+    'Semi-Final',
+    'Runner-Up 🥈',
+    'Champion 🏆'
+];
+
+function createDefaultStats() {
+    return {
+        elo: 1000,
+        peakElo: 1000,
+        matchesPlayed: 0,
+        aiWins: 0,
+        aiDraws: 0,
+        aiLosses: 0,
+        pvpWins: 0,
+        pvpDraws: 0,
+        pvpLosses: 0,
+        goalsScored: 0,
+        goalsConceded: 0,
+        bestWinDiff: -1,
+        bestWinText: '—',
+        cleanSheets: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+        penaltyWins: 0,
+        shots: 0,
+        shotsOnTarget: 0,
+        saves: 0,
+        tackles: 0,
+        passes: 0,
+        bestWorldCupRank: 0,
+        worldCupTitles: 0,
+        bestEuroRank: 0,
+        euroTitles: 0,
+        teamUsage: {}
+    };
+}
+
+function getRankFromElo(elo) {
+    const e = Number(elo) || 1000;
+    const tiers = [
+        { name: 'Bronze III', min: 0, next: 950, badge: 'bg-orange-950/80 border-orange-600/50 text-orange-300' },
+        { name: 'Bronze II', min: 950, next: 1025, badge: 'bg-orange-950/80 border-orange-500/50 text-orange-200' },
+        { name: 'Bronze I', min: 1025, next: 1100, badge: 'bg-amber-950/80 border-amber-500/50 text-amber-300' },
+        { name: 'Silver III', min: 1100, next: 1175, badge: 'bg-slate-800 border-slate-400/50 text-slate-200' },
+        { name: 'Silver II', min: 1175, next: 1250, badge: 'bg-slate-800 border-slate-300/60 text-white' },
+        { name: 'Silver I', min: 1250, next: 1325, badge: 'bg-slate-700 border-slate-200/70 text-white' },
+        { name: 'Gold III', min: 1325, next: 1425, badge: 'bg-amber-500/20 border-amber-400/50 text-amber-300' },
+        { name: 'Gold II', min: 1425, next: 1525, badge: 'bg-amber-500/25 border-amber-300/60 text-amber-200' },
+        { name: 'Gold I', min: 1525, next: 1625, badge: 'bg-yellow-400/25 border-yellow-300/70 text-yellow-200' },
+        { name: 'Platinum', min: 1625, next: 1750, badge: 'bg-cyan-500/20 border-cyan-300/60 text-cyan-200' },
+        { name: 'Diamond', min: 1750, next: 1900, badge: 'bg-sky-500/25 border-sky-300/70 text-sky-200' },
+        { name: 'Master', min: 1900, next: 2100, badge: 'bg-purple-500/25 border-purple-300/70 text-purple-200' },
+        { name: 'Football Legend', min: 2100, next: 2500, badge: 'bg-gradient-to-r from-amber-400/30 to-rose-500/30 border-amber-300 text-amber-200' }
+    ];
+    let cur = tiers[0];
+    for (const t of tiers) {
+        if (e >= t.min) cur = t;
+    }
+    const span = Math.max(1, cur.next - cur.min);
+    const pct = Math.max(0, Math.min(100, Math.round(((e - cur.min) / span) * 100)));
+    return { ...cur, pct };
+}
+
+const PROFILE = {
+    loggedIn: false,
+    nameKey: null,
+    displayName: 'STAR_10',
+    avatarId: 0,
+    createdAt: 0,
+    updatedAt: 0,
+    pinHash: null,
+    salt: null,
+    hashAlgo: null,
+    stats: createDefaultStats()
+};
+
+const PIN_MODAL_STATE = {
+    mode: 'LOGIN', // 'LOGIN' | 'REGISTER'
+    nameKey: null,
+    displayName: '',
+    existingRecord: null,
+    busy: false
+};
+
+function isAdminUser() {
+    return !!(PROFILE.loggedIn && PROFILE.nameKey === 'sotiris');
+}
+
+function loadLocalAccountCache() {
+    try {
+        return JSON.parse(localStorage.getItem(LOCAL_ACCOUNTS_KEY) || '{}') || {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function saveLocalAccountCache(map) {
+    try { localStorage.setItem(LOCAL_ACCOUNTS_KEY, JSON.stringify(map)); } catch (e) {}
+}
+
+async function fetchAccountRecord(nameKey) {
+    await ensureFirebaseAuth();
+    if (rtdb) {
+        try {
+            const snap = await rtdb.ref(`players/${nameKey}`).once('value');
+            if (snap.exists()) {
+                const val = snap.val();
+                const cache = loadLocalAccountCache();
+                cache[nameKey] = val;
+                saveLocalAccountCache(cache);
+                return val;
+            }
+            return null;
+        } catch (err) {
+            console.warn('Firebase account read fallback to local cache:', err && err.message);
+        }
+    }
+    const cache = loadLocalAccountCache();
+    return cache[nameKey] || null;
+}
+
+function sanitizeStatsObject(raw) {
+    const def = createDefaultStats();
+    const s = Object.assign({}, def, raw || {});
+    const clampInt = (v, min, max) => Math.max(min, Math.min(max, Math.round(Number(v) || 0)));
+    s.elo = clampInt(s.elo, 100, 5000);
+    s.peakElo = Math.max(s.elo, clampInt(s.peakElo || s.elo, 100, 5000));
+    s.matchesPlayed = clampInt(s.matchesPlayed, 0, 100000);
+    s.aiWins = clampInt(s.aiWins, 0, 100000);
+    s.aiDraws = clampInt(s.aiDraws, 0, 100000);
+    s.aiLosses = clampInt(s.aiLosses, 0, 100000);
+    s.pvpWins = clampInt(s.pvpWins, 0, 100000);
+    s.pvpDraws = clampInt(s.pvpDraws, 0, 100000);
+    s.pvpLosses = clampInt(s.pvpLosses, 0, 100000);
+    s.goalsScored = clampInt(s.goalsScored, 0, 500000);
+    s.goalsConceded = clampInt(s.goalsConceded, 0, 500000);
+    s.bestWinDiff = Math.max(-1, Math.min(99, Math.round(Number(s.bestWinDiff ?? -1))));
+    s.bestWinText = String(s.bestWinText || '—').slice(0, 32);
+    s.cleanSheets = clampInt(s.cleanSheets, 0, 100000);
+    s.currentStreak = clampInt(s.currentStreak, 0, 10000);
+    s.bestStreak = Math.max(s.currentStreak, clampInt(s.bestStreak, 0, 10000));
+    s.penaltyWins = clampInt(s.penaltyWins, 0, 10000);
+    s.shots = clampInt(s.shots, 0, 500000);
+    s.shotsOnTarget = clampInt(s.shotsOnTarget, 0, 500000);
+    s.saves = clampInt(s.saves, 0, 500000);
+    s.tackles = clampInt(s.tackles, 0, 500000);
+    s.passes = clampInt(s.passes, 0, 1000000);
+    s.bestWorldCupRank = clampInt(s.bestWorldCupRank, 0, 6);
+    s.worldCupTitles = clampInt(s.worldCupTitles, 0, 1000);
+    s.bestEuroRank = clampInt(s.bestEuroRank, 0, 6);
+    s.euroTitles = clampInt(s.euroTitles, 0, 1000);
+    s.teamUsage = (s.teamUsage && typeof s.teamUsage === 'object') ? s.teamUsage : {};
+    return s;
+}
+
+async function persistAccountRecord(nameKey, record) {
+    await ensureFirebaseAuth();
+    const safeRec = {
+        nameKey,
+        displayName: String(record.displayName || nameKey).slice(0, 14),
+        salt: String(record.salt || ''),
+        pinHash: String(record.pinHash || ''),
+        hashAlgo: String(record.hashAlgo || 'ITER-SHA256-4K'),
+        avatarId: Math.max(0, Math.min(FOOTBALL_AVATARS.length - 1, Number(record.avatarId) || 0)),
+        createdAt: Number(record.createdAt) || Date.now(),
+        updatedAt: Date.now(),
+        ownerUid: record.ownerUid || fbAuthUid || 'anon',
+        stats: sanitizeStatsObject(record.stats)
+    };
+    const cache = loadLocalAccountCache();
+    cache[nameKey] = safeRec;
+    saveLocalAccountCache(cache);
+    if (rtdb) {
+        try {
+            await rtdb.ref(`players/${nameKey}`).set(safeRec);
+        } catch (err) {
+            console.warn('Firebase account save warning:', err && err.message);
+        }
+    }
+    return safeRec;
+}
+
+function applyLoggedInProfile(rec) {
+    PROFILE.loggedIn = true;
+    PROFILE.nameKey = rec.nameKey;
+    PROFILE.displayName = rec.displayName;
+    PROFILE.avatarId = Number(rec.avatarId) || 0;
+    PROFILE.createdAt = rec.createdAt || Date.now();
+    PROFILE.updatedAt = rec.updatedAt || Date.now();
+    PROFILE.pinHash = rec.pinHash;
+    PROFILE.salt = rec.salt;
+    PROFILE.hashAlgo = rec.hashAlgo || 'ITER-SHA256-4K';
+    PROFILE.stats = sanitizeStatsObject(rec.stats);
+    ONLINE.playerName = PROFILE.displayName.toUpperCase();
+
+    try {
+        localStorage.setItem(SESSION_KEY, JSON.stringify({
+            nameKey: PROFILE.nameKey,
+            pinHash: PROFILE.pinHash
+        }));
+    } catch (e) {}
+
+    updateAuthUI();
+}
+
+function logoutCurrentProfile() {
+    PROFILE.loggedIn = false;
+    PROFILE.nameKey = null;
+    PROFILE.displayName = 'STAR_10';
+    PROFILE.avatarId = 0;
+    PROFILE.pinHash = null;
+    PROFILE.salt = null;
+    PROFILE.stats = createDefaultStats();
+    ONLINE.playerName = 'STAR_10';
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+    const inp = document.getElementById('main-menu-player-name');
+    if (inp) inp.value = '';
+    updateAuthUI();
+}
+
+function updateAuthUI() {
+    const outBox = document.getElementById('menu-account-logged-out');
+    const inBox = document.getElementById('menu-account-logged-in');
+    const adminBtn = document.getElementById('top-admin-btn');
+    const profBtnAv = document.getElementById('menu-profile-btn-avatar');
+
+    if (PROFILE.loggedIn) {
+        if (outBox) outBox.classList.add('hidden');
+        if (inBox) inBox.classList.remove('hidden');
+        const rank = getRankFromElo(PROFILE.stats.elo);
+        const totalW = PROFILE.stats.aiWins + PROFILE.stats.pvpWins;
+        const totalD = PROFILE.stats.aiDraws + PROFILE.stats.pvpDraws;
+        const totalL = PROFILE.stats.aiLosses + PROFILE.stats.pvpLosses;
+
+        const avEl = document.getElementById('menu-logged-avatar');
+        if (avEl) avEl.innerHTML = renderAvatarSVG(PROFILE.avatarId);
+        if (profBtnAv) profBtnAv.innerHTML = renderAvatarSVG(PROFILE.avatarId);
+        const nameEl = document.getElementById('menu-logged-name');
+        if (nameEl) nameEl.textContent = PROFILE.displayName;
+        const rankEl = document.getElementById('menu-logged-rank-badge');
+        if (rankEl) {
+            rankEl.textContent = rank.name;
+            rankEl.className = `px-2 py-0.5 rounded-md border text-[10px] font-black uppercase ${rank.badge}`;
+        }
+        const subEl = document.getElementById('menu-logged-sub');
+        if (subEl) subEl.textContent = `ELO ${PROFILE.stats.elo} • ${totalW}W - ${totalD}D - ${totalL}L`;
+    } else {
+        if (outBox) outBox.classList.remove('hidden');
+        if (inBox) inBox.classList.add('hidden');
+        if (profBtnAv) profBtnAv.textContent = '👤';
+    }
+
+    // Show top-right Admin button ONLY when Sotiris is logged in and not actively inside a match
+    if (adminBtn) {
+        const showAdmin = isAdminUser() && (typeof MATCH === 'undefined' || MATCH.state === 'MENU');
+        adminBtn.classList.toggle('hidden', !showAdmin);
+    }
+}
+
+async function beginAccountAuthFlow() {
+    const inp = document.getElementById('main-menu-player-name');
+    const btn = document.getElementById('btn-account-continue');
+    const { display, key } = normalizeAccountKey(inp ? inp.value : '');
+    if (!display || key.length < 2) {
+        showPinAuthError(null);
+        if (inp) {
+            inp.focus();
+            inp.classList.add('border-rose-500');
+            setTimeout(() => inp.classList.remove('border-rose-500'), 1000);
+        }
+        return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Checking...'; }
+    try {
+        const existing = await fetchAccountRecord(key);
+        PIN_MODAL_STATE.nameKey = key;
+        PIN_MODAL_STATE.displayName = existing ? existing.displayName : display;
+        PIN_MODAL_STATE.existingRecord = existing;
+        PIN_MODAL_STATE.mode = existing ? 'LOGIN' : 'REGISTER';
+        openPinAuthModal();
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Login / Create'; }
+    }
+}
+
+function showPinAuthError(msg) {
+    const el = document.getElementById('pin-modal-error');
+    if (!el) return;
+    if (!msg) {
+        el.classList.add('hidden');
+        el.textContent = '';
+    } else {
+        el.textContent = msg;
+        el.classList.remove('hidden');
+    }
+}
+
+function openPinAuthModal() {
+    const isReg = (PIN_MODAL_STATE.mode === 'REGISTER');
+    document.getElementById('pin-modal-title').textContent = isReg ? '✨ Create New Account' : '🔐 Player Login';
+    document.getElementById('pin-modal-name-badge').textContent = PIN_MODAL_STATE.displayName.toUpperCase();
+    document.getElementById('pin-modal-subtitle').textContent = isReg
+        ? `Account "${PIN_MODAL_STATE.displayName}" not found. Enter a 6-digit PIN to create & save your account.`
+        : `Welcome back, ${PIN_MODAL_STATE.displayName}! Enter your 6-digit PIN to login.`;
+    document.getElementById('pin-confirm-wrap').classList.toggle('hidden', !isReg);
+    document.getElementById('pin-modal-submit-btn').textContent = isReg ? '🔐 Save Account & Login' : '▶ Verify PIN & Login';
+    const mainInp = document.getElementById('pin-input-main');
+    const confInp = document.getElementById('pin-input-confirm');
+    if (mainInp) mainInp.value = '';
+    if (confInp) confInp.value = '';
+    showPinAuthError(null);
+    document.getElementById('pin-auth-modal').classList.remove('hidden');
+    setTimeout(() => { if (mainInp) mainInp.focus(); }, 60);
+}
+
+function closePinAuthModal() {
+    document.getElementById('pin-auth-modal').classList.add('hidden');
+}
+
+async function submitPinAuthModal() {
+    if (PIN_MODAL_STATE.busy) return;
+    const pin = (document.getElementById('pin-input-main').value || '').trim();
+    const confirmPin = (document.getElementById('pin-input-confirm').value || '').trim();
+    if (!/^\d{6}$/.test(pin)) {
+        return showPinAuthError('Please enter an exact 6-digit numeric PIN (0-9).');
+    }
+
+    const key = PIN_MODAL_STATE.nameKey;
+    const now = Date.now();
+    const lim = _PIN_ATTEMPTS[key] || { fails: 0, lockUntil: 0 };
+    if (PIN_MODAL_STATE.mode === 'LOGIN' && lim.lockUntil > now) {
+        const secs = Math.ceil((lim.lockUntil - now) / 1000);
+        return showPinAuthError(`Too many failed attempts. Try again in ${secs}s.`);
+    }
+
+    const btn = document.getElementById('pin-modal-submit-btn');
+    PIN_MODAL_STATE.busy = true;
+    if (btn) { btn.disabled = true; btn.textContent = 'Securing...'; }
+    showPinAuthError(null);
+
+    try {
+        if (PIN_MODAL_STATE.mode === 'REGISTER') {
+            if (pin !== confirmPin) {
+                showPinAuthError('The two 6-digit PINs do not match.');
+                return;
+            }
+            // Re-verify account wasn't created concurrently
+            const recheck = await fetchAccountRecord(key);
+            if (recheck) {
+                PIN_MODAL_STATE.mode = 'LOGIN';
+                PIN_MODAL_STATE.existingRecord = recheck;
+                openPinAuthModal();
+                showPinAuthError('Account already exists! Please enter your 6-digit PIN to login.');
+                return;
+            }
+            const salt = generateCryptoSaltHex(16);
+            const { hash, algo } = await hashPinSecure(pin, salt);
+            const randomAvatar = Math.floor(Math.random() * FOOTBALL_AVATARS.length);
+            const newRec = await persistAccountRecord(key, {
+                nameKey: key,
+                displayName: PIN_MODAL_STATE.displayName,
+                salt,
+                pinHash: hash,
+                hashAlgo: algo,
+                avatarId: randomAvatar,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                ownerUid: fbAuthUid || 'anon',
+                stats: createDefaultStats()
+            });
+            applyLoggedInProfile(newRec);
+            closePinAuthModal();
+        } else {
+            const rec = await fetchAccountRecord(key) || PIN_MODAL_STATE.existingRecord;
+            if (!rec || !rec.salt || !rec.pinHash) {
+                showPinAuthError('Account record could not be loaded.');
+                return;
+            }
+            const { hash } = await hashPinSecure(pin, rec.salt, rec.hashAlgo || null);
+            if (!timingSafeEqualStr(hash, rec.pinHash)) {
+                lim.fails = (lim.fails || 0) + 1;
+                if (lim.fails >= 5) {
+                    lim.lockUntil = Date.now() + 30000;
+                    lim.fails = 0;
+                    showPinAuthError('Incorrect PIN. Account locked for 30 seconds for security.');
+                } else {
+                    showPinAuthError(`Incorrect 6-digit PIN (${5 - lim.fails} attempts left).`);
+                }
+                _PIN_ATTEMPTS[key] = lim;
+                return;
+            }
+            delete _PIN_ATTEMPTS[key];
+            // Refresh Sotiris ownerUid on login so server rules recognize current admin session
+            if (key === 'sotiris' && fbAuthUid && rec.ownerUid !== fbAuthUid && rtdb) {
+                rec.ownerUid = fbAuthUid;
+                rtdb.ref(`players/${key}/ownerUid`).set(fbAuthUid).catch(() => {});
+            }
+            applyLoggedInProfile(rec);
+            closePinAuthModal();
+        }
+    } finally {
+        PIN_MODAL_STATE.busy = false;
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = (PIN_MODAL_STATE.mode === 'REGISTER') ? '🔐 Save Account & Login' : '▶ Verify PIN & Login';
+        }
+    }
+}
+
+async function restoreSavedProfileSession() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) {}
+    if (!saved || !saved.nameKey || !saved.pinHash) {
+        updateAuthUI();
+        return;
+    }
+    const rec = await fetchAccountRecord(saved.nameKey);
+    // Only auto-restore if stored hash still matches database (invalidates immediately if Admin changed PIN!)
+    if (rec && timingSafeEqualStr(rec.pinHash, saved.pinHash)) {
+        applyLoggedInProfile(rec);
+    } else {
+        try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+        updateAuthUI();
+    }
+}
+
+async function saveCurrentProfileStats() {
+    if (!PROFILE.loggedIn || !PROFILE.nameKey) return;
+    await persistAccountRecord(PROFILE.nameKey, {
+        nameKey: PROFILE.nameKey,
+        displayName: PROFILE.displayName,
+        salt: PROFILE.salt,
+        pinHash: PROFILE.pinHash,
+        hashAlgo: PROFILE.hashAlgo,
+        avatarId: PROFILE.avatarId,
+        createdAt: PROFILE.createdAt,
+        updatedAt: Date.now(),
+        ownerUid: fbAuthUid || 'anon',
+        stats: PROFILE.stats
+    });
+    updateAuthUI();
+}
+
+// Record completed match stats & ELO into logged-in player's Firebase profile
+function recordMatchResultToProfile() {
+    if (!PROFILE.loggedIn || !PROFILE.nameKey || MATCH.statsRecordedToProfile) return;
+    MATCH.statsRecordedToProfile = true;
+
+    const s = PROFILE.stats;
+    const isPvp = (MATCH.mode === 'ONLINE');
+    const myIdx = (isPvp && ONLINE.active && !ONLINE.isHost) ? 1 : 0;
+    const oppIdx = 1 - myIdx;
+    const myGoals = MATCH.score[myIdx];
+    const oppGoals = MATCH.score[oppIdx];
+    const penWin = (PENALTY_STATE.winnerTeam === myIdx);
+    const penLoss = (PENALTY_STATE.winnerTeam === oppIdx);
+    const isWin = (myGoals > oppGoals) || penWin;
+    const isLoss = (myGoals < oppGoals) || penLoss;
+    const isDraw = !isWin && !isLoss;
+
+    s.matchesPlayed++;
+    s.goalsScored += myGoals;
+    s.goalsConceded += oppGoals;
+    if (oppGoals === 0) s.cleanSheets++;
+    if (penWin) s.penaltyWins++;
+
+    if (isPvp) {
+        if (isWin) s.pvpWins++;
+        else if (isLoss) s.pvpLosses++;
+        else s.pvpDraws++;
+    } else {
+        if (isWin) s.aiWins++;
+        else if (isLoss) s.aiLosses++;
+        else s.aiDraws++;
+    }
+
+    if (isWin) {
+        s.currentStreak++;
+        if (s.currentStreak > s.bestStreak) s.bestStreak = s.currentStreak;
+        const diff = myGoals - oppGoals;
+        const oppCode = TEAMS[selectedTeams[oppIdx]] ? TEAMS[selectedTeams[oppIdx]].code : 'OPP';
+        const myCode = TEAMS[selectedTeams[myIdx]] ? TEAMS[selectedTeams[myIdx]].code : 'ME';
+        if (diff > s.bestWinDiff || (diff === s.bestWinDiff && myGoals > (parseInt(String(s.bestWinText).split('-')[0]) || 0))) {
+            s.bestWinDiff = diff;
+            s.bestWinText = penWin ? `${myGoals}-${oppGoals} (P) vs ${oppCode}` : `${myGoals}-${oppGoals} vs ${oppCode} (${myCode})`;
+        }
+    } else if (isLoss) {
+        s.currentStreak = 0;
+    }
+
+    // Dynamic ELO calculation (vs AI scales with opponent team OVR; vs Player uses K=32)
+    const oppTeam = TEAMS[selectedTeams[oppIdx]];
+    const oppExpectedElo = isPvp ? 1100 : (850 + ((oppTeam ? oppTeam.ovr : 80) - 70) * 14);
+    const expectedScore = 1 / (1 + Math.pow(10, (oppExpectedElo - s.elo) / 400));
+    const actualScore = isWin ? 1.0 : (isDraw ? 0.5 : 0.0);
+    const kFactor = isPvp ? 32 : 24;
+    const marginBonus = isWin ? Math.min(8, Math.max(0, (myGoals - oppGoals - 1) * 2)) : 0;
+    s.elo = Math.max(100, Math.round(s.elo + kFactor * (actualScore - expectedScore) + marginBonus));
+    if (s.elo > s.peakElo) s.peakElo = s.elo;
+
+    // Career match telemetry
+    s.shots += (MATCH.stats.shots[myIdx] || 0);
+    s.shotsOnTarget += (MATCH.stats.shotsOnTarget[myIdx] || 0);
+    s.saves += (MATCH.stats.saves[myIdx] || 0);
+    s.tackles += (MATCH.stats.tackles[myIdx] || 0);
+    s.passes += (MATCH.stats.passes[myIdx] || 0);
+
+    // Track most-used nation
+    const myTeamCode = TEAMS[selectedTeams[myIdx]] ? TEAMS[selectedTeams[myIdx]].code : null;
+    if (myTeamCode) {
+        if (!s.teamUsage || typeof s.teamUsage !== 'object') s.teamUsage = {};
+        s.teamUsage[myTeamCode] = (s.teamUsage[myTeamCode] || 0) + 1;
+    }
+
+    saveCurrentProfileStats();
+}
+
+function recordTournamentProgressToProfile(type, stageRank, wonTitle = false) {
+    if (!PROFILE.loggedIn || !PROFILE.nameKey) return;
+    const s = PROFILE.stats;
+    if (type === 'WORLDCUP') {
+        if (stageRank > s.bestWorldCupRank) s.bestWorldCupRank = stageRank;
+        if (wonTitle) s.worldCupTitles++;
+    } else if (type === 'EURO') {
+        if (stageRank > s.bestEuroRank) s.bestEuroRank = stageRank;
+        if (wonTitle) s.euroTitles++;
+    }
+    saveCurrentProfileStats();
+}
+
+// --- PROFILE PAGE MODAL ---
+function openProfileModal() {
+    renderProfileModal();
+    document.getElementById('profile-modal').classList.remove('hidden');
+}
+
+function closeProfileModal() {
+    document.getElementById('profile-modal').classList.add('hidden');
+}
+
+async function selectProfileAvatar(avatarId) {
+    if (!PROFILE.loggedIn) return;
+    PROFILE.avatarId = avatarId;
+    renderProfileModal();
+    const msg = document.getElementById('profile-avatar-saved-msg');
+    if (msg) {
+        msg.classList.remove('hidden');
+        setTimeout(() => msg.classList.add('hidden'), 1400);
+    }
+    await saveCurrentProfileStats();
+}
+
+function renderProfileModal() {
+    const outView = document.getElementById('profile-logged-out-view');
+    const inView = document.getElementById('profile-logged-in-view');
+    if (!PROFILE.loggedIn) {
+        if (outView) outView.classList.remove('hidden');
+        if (inView) inView.classList.add('hidden');
+        return;
+    }
+    if (outView) outView.classList.add('hidden');
+    if (inView) inView.classList.remove('hidden');
+
+    const s = PROFILE.stats;
+    const rank = getRankFromElo(s.elo);
+    document.getElementById('profile-hero-avatar').innerHTML = renderAvatarSVG(PROFILE.avatarId);
+    document.getElementById('profile-hero-name').textContent = PROFILE.displayName;
+    const rankEl = document.getElementById('profile-hero-rank');
+    rankEl.textContent = rank.name;
+    rankEl.className = `px-2.5 py-0.5 rounded-lg border text-xs font-black uppercase ${rank.badge}`;
+    document.getElementById('profile-hero-since').textContent = `Member since ${new Date(PROFILE.createdAt || Date.now()).toLocaleDateString()} • Peak ELO ${s.peakElo}`;
+    document.getElementById('profile-hero-elo').textContent = `${s.elo} ELO`;
+    document.getElementById('profile-elo-progress').style.width = `${rank.pct}%`;
+    document.getElementById('profile-next-rank-label').textContent = rank.name === 'Football Legend' ? 'MAX TIER' : `Next: ${rank.next}`;
+
+    // 12 Football Avatars Picker
+    document.getElementById('profile-avatar-grid').innerHTML = FOOTBALL_AVATARS.map(av => {
+        const active = (av.id === PROFILE.avatarId);
+        return `<button onclick="selectProfileAvatar(${av.id})" title="${av.label}"
+            class="group relative p-1.5 rounded-xl bg-slate-950 border-2 ${active ? 'border-emerald-400 ring-2 ring-emerald-400/40 scale-105' : 'border-slate-800 hover:border-slate-600'} transition flex flex-col items-center gap-1">
+            <div class="w-11 h-11 rounded-lg overflow-hidden">${av.svg}</div>
+            <span class="text-[9px] font-black uppercase ${active ? 'text-emerald-300' : 'text-slate-400'} truncate w-full text-center">${av.label}</span>
+        </button>`;
+    }).join('');
+
+    const totalW = s.aiWins + s.pvpWins;
+    const totalMatches = Math.max(1, s.matchesPlayed);
+    const winPct = s.matchesPlayed ? Math.round((totalW / s.matchesPlayed) * 100) : 0;
+    const gd = s.goalsScored - s.goalsConceded;
+    const gdStr = gd >= 0 ? `+${gd}` : `${gd}`;
+
+    document.getElementById('profile-headline-stats').innerHTML = `
+        <div class="p-3.5 rounded-2xl bg-slate-900/95 border border-emerald-500/25">
+            <div class="text-[10px] font-black uppercase text-emerald-400">RANK &amp; ELO</div>
+            <div class="text-xl font-black text-white mt-0.5">${s.elo}</div>
+            <div class="text-[11px] font-bold text-slate-400">${rank.name}</div>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-slate-900/95 border border-amber-500/25">
+            <div class="text-[10px] font-black uppercase text-amber-400">BEST WIN</div>
+            <div class="text-base font-black text-white mt-1 truncate">${s.bestWinText}</div>
+            <div class="text-[11px] font-bold text-slate-400">${s.bestWinDiff >= 0 ? `+${s.bestWinDiff} Goal Margin` : 'Play a match!'}</div>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-slate-900/95 border border-cyan-500/25">
+            <div class="text-[10px] font-black uppercase text-cyan-400">GOALS FOR / AGAINST</div>
+            <div class="text-xl font-black text-white mt-0.5">${s.goalsScored} <span class="text-slate-500">/</span> ${s.goalsConceded}</div>
+            <div class="text-[11px] font-bold ${gd >= 0 ? 'text-emerald-400' : 'text-rose-400'}">GD ${gdStr} • ${(s.goalsScored / totalMatches).toFixed(1)}/gm</div>
+        </div>
+        <div class="p-3.5 rounded-2xl bg-slate-900/95 border border-purple-500/25">
+            <div class="text-[10px] font-black uppercase text-purple-400">WIN RATE &amp; STREAK</div>
+            <div class="text-xl font-black text-white mt-0.5">${winPct}%</div>
+            <div class="text-[11px] font-bold text-slate-400">🔥 ${s.currentStreak} Streak (Best: ${s.bestStreak})</div>
+        </div>`;
+
+    const aiTotal = s.aiWins + s.aiDraws + s.aiLosses;
+    const aiRate = aiTotal ? Math.round((s.aiWins / aiTotal) * 100) : 0;
+    const pvpTotal = s.pvpWins + s.pvpDraws + s.pvpLosses;
+    const pvpRate = pvpTotal ? Math.round((s.pvpWins / pvpTotal) * 100) : 0;
+
+    document.getElementById('profile-mode-stats').innerHTML = `
+        <div class="p-4 rounded-2xl bg-slate-900/95 border border-slate-800 space-y-2">
+            <div class="flex justify-between items-center">
+                <span class="text-xs font-black uppercase text-emerald-400">⚡ Record vs AI</span>
+                <span class="text-xs font-black text-slate-300">${aiRate}% Win</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center">
+                <div class="bg-slate-950 p-2 rounded-xl"><div class="text-lg font-black text-emerald-400">${s.aiWins}</div><div class="text-[10px] font-bold text-slate-400">WINS</div></div>
+                <div class="bg-slate-950 p-2 rounded-xl"><div class="text-lg font-black text-amber-300">${s.aiDraws}</div><div class="text-[10px] font-bold text-slate-400">DRAWS</div></div>
+                <div class="bg-slate-950 p-2 rounded-xl"><div class="text-lg font-black text-rose-400">${s.aiLosses}</div><div class="text-[10px] font-bold text-slate-400">LOSSES</div></div>
+            </div>
+        </div>
+        <div class="p-4 rounded-2xl bg-slate-900/95 border border-slate-800 space-y-2">
+            <div class="flex justify-between items-center">
+                <span class="text-xs font-black uppercase text-cyan-400">🌐 Record vs Players</span>
+                <span class="text-xs font-black text-slate-300">${pvpRate}% Win</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center">
+                <div class="bg-slate-950 p-2 rounded-xl"><div class="text-lg font-black text-emerald-400">${s.pvpWins}</div><div class="text-[10px] font-bold text-slate-400">WINS</div></div>
+                <div class="bg-slate-950 p-2 rounded-xl"><div class="text-lg font-black text-amber-300">${s.pvpDraws}</div><div class="text-[10px] font-bold text-slate-400">DRAWS</div></div>
+                <div class="bg-slate-950 p-2 rounded-xl"><div class="text-lg font-black text-rose-400">${s.pvpLosses}</div><div class="text-[10px] font-bold text-slate-400">LOSSES</div></div>
+            </div>
+        </div>
+        <div class="p-4 rounded-2xl bg-slate-900/95 border border-amber-500/25 flex items-center justify-between">
+            <div>
+                <div class="text-[10px] font-black uppercase text-amber-400">🏆 HIGHEST WORLD CUP FINISH</div>
+                <div class="text-lg font-black text-white mt-0.5">${TOURNAMENT_STAGE_LABELS[s.bestWorldCupRank] || 'Not Played'}</div>
+            </div>
+            <div class="text-right">
+                <div class="text-2xl font-black text-amber-300">${s.worldCupTitles}</div>
+                <div class="text-[10px] font-bold text-slate-400 uppercase">Titles</div>
+            </div>
+        </div>
+        <div class="p-4 rounded-2xl bg-slate-900/95 border border-sky-500/25 flex items-center justify-between">
+            <div>
+                <div class="text-[10px] font-black uppercase text-sky-400">🇪🇺 HIGHEST EURO FINISH</div>
+                <div class="text-lg font-black text-white mt-0.5">${TOURNAMENT_STAGE_LABELS[s.bestEuroRank] || 'Not Played'}</div>
+            </div>
+            <div class="text-right">
+                <div class="text-2xl font-black text-sky-300">${s.euroTitles}</div>
+                <div class="text-[10px] font-bold text-slate-400 uppercase">Titles</div>
+            </div>
+        </div>`;
+
+    // Favorite Nation
+    let favCode = null, favCount = 0;
+    Object.entries(s.teamUsage || {}).forEach(([code, cnt]) => {
+        if (cnt > favCount) { favCount = cnt; favCode = code; }
+    });
+    const favTeam = favCode ? TEAMS.find(t => t.code === favCode) : null;
+    const favHtml = favTeam
+        ? `<span class="inline-flex items-center justify-center gap-1.5"><span class="w-5 h-3.5 rounded-sm overflow-hidden inline-block">${renderFlagSVG(favTeam, 20, 14)}</span>${favTeam.code}</span>`
+        : '—';
+
+    const shotAcc = s.shots ? `${Math.round((s.shotsOnTarget / s.shots) * 100)}%` : '0%';
+    document.getElementById('profile-telemetry-grid').innerHTML = `
+        <div class="bg-slate-950 p-2.5 rounded-xl"><div class="text-base font-black text-white">${s.matchesPlayed}</div><div class="text-[10px] font-bold text-slate-400 uppercase">Matches</div></div>
+        <div class="bg-slate-950 p-2.5 rounded-xl"><div class="text-base font-black text-emerald-400">${s.cleanSheets}</div><div class="text-[10px] font-bold text-slate-400 uppercase">Clean Sheets</div></div>
+        <div class="bg-slate-950 p-2.5 rounded-xl"><div class="text-base font-black text-amber-300">${s.penaltyWins}</div><div class="text-[10px] font-bold text-slate-400 uppercase">Penalty Wins</div></div>
+        <div class="bg-slate-950 p-2.5 rounded-xl"><div class="text-base font-black text-cyan-300">${favHtml}</div><div class="text-[10px] font-bold text-slate-400 uppercase">Fav Nation</div></div>
+        <div class="bg-slate-950 p-2.5 rounded-xl"><div class="text-base font-black text-white">${s.shots} <span class="text-[11px] text-emerald-400">(${shotAcc})</span></div><div class="text-[10px] font-bold text-slate-400 uppercase">Shots (On Tgt)</div></div>
+        <div class="bg-slate-950 p-2.5 rounded-xl"><div class="text-base font-black text-white">${s.saves}</div><div class="text-[10px] font-bold text-slate-400 uppercase">GK Saves</div></div>
+        <div class="bg-slate-950 p-2.5 rounded-xl"><div class="text-base font-black text-white">${s.tackles}</div><div class="text-[10px] font-bold text-slate-400 uppercase">Tackles Won</div></div>
+        <div class="bg-slate-950 p-2.5 rounded-xl"><div class="text-base font-black text-white">${s.passes}</div><div class="text-[10px] font-bold text-slate-400 uppercase">Passes</div></div>`;
+}
+
+// --- SOTIRIS ADMIN PANEL ---
+let _adminUsersCache = [];
+
+const FIREBASE_SECURITY_RULES_JSON = JSON.stringify({
+    rules: {
+        ".read": false,
+        ".write": false,
+        "players": {
+            ".read": "auth != null && auth.uid === root.child('players/sotiris/ownerUid').val()",
+            "$nameKey": {
+                ".read": "auth != null",
+                ".write": "auth != null && newData.exists() && (!data.exists() || auth.uid === root.child('players/sotiris/ownerUid').val() || (newData.child('pinHash').val() === data.child('pinHash').val() && newData.child('salt').val() === data.child('salt').val()))",
+                ".validate": "newData.hasChildren(['displayName','salt','pinHash','hashAlgo','avatarId','stats']) && newData.child('pinHash').isString() && newData.child('pinHash').val().length === 64 && newData.child('salt').isString() && newData.child('salt').val().length === 32 && newData.child('avatarId').isNumber() && newData.child('avatarId').val() >= 0 && newData.child('avatarId').val() <= 11"
+            }
+        },
+        "rooms": {
+            "$roomCode": {
+                ".read": "auth != null",
+                ".write": "auth != null"
+            }
+        },
+        "_diagnostics": {
+            "$pingId": {
+                ".read": "auth != null",
+                ".write": "auth != null"
+            }
+        }
+    }
+}, null, 2);
+
+function showAdminToast(msg, isError = false) {
+    const el = document.getElementById('admin-toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = isError
+        ? 'p-3 rounded-xl bg-rose-500/20 border border-rose-400/40 text-xs font-black text-rose-200'
+        : 'p-3 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-xs font-black text-emerald-200';
+    el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 3200);
+}
+
+function openAdminModal() {
+    if (!isAdminUser()) return;
+    document.getElementById('admin-modal').classList.remove('hidden');
+    const codeEl = document.getElementById('admin-rules-code');
+    if (codeEl) codeEl.textContent = FIREBASE_SECURITY_RULES_JSON;
+    loadAdminUserList();
+}
+
+function closeAdminModal() {
+    document.getElementById('admin-modal').classList.add('hidden');
+}
+
+function toggleAdminRulesBox() {
+    document.getElementById('admin-rules-box').classList.toggle('hidden');
+}
+
+function copyFirebaseSecurityRules() {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(FIREBASE_SECURITY_RULES_JSON)
+            .then(() => showAdminToast('✓ Hardened Firebase RTDB Security Rules copied to clipboard!'))
+            .catch(() => showAdminToast('Select & copy the rules JSON from the box above.', false));
+    } else {
+        showAdminToast('Select & copy the rules JSON from the box above.', false);
+    }
+}
+
+async function loadAdminUserList() {
+    if (!isAdminUser()) return;
+    const listEl = document.getElementById('admin-users-list');
+    if (listEl) listEl.innerHTML = '<div class="text-center text-xs font-bold text-slate-400 py-8">Loading players from Firebase...</div>';
+
+    await ensureFirebaseAuth();
+    const merged = { ...loadLocalAccountCache() };
+    if (rtdb) {
+        try {
+            const snap = await rtdb.ref('players').once('value');
+            if (snap.exists()) {
+                const fbUsers = snap.val() || {};
+                Object.keys(fbUsers).forEach(k => { merged[k] = fbUsers[k]; });
+                saveLocalAccountCache(merged);
+            }
+        } catch (err) {
+            showAdminToast('Loaded cached users (check Firebase rules if full list is restricted).', true);
+        }
+    }
+
+    _adminUsersCache = Object.entries(merged)
+        .filter(([, u]) => u && u.displayName)
+        .map(([k, u]) => ({ ...u, nameKey: u.nameKey || k, stats: sanitizeStatsObject(u.stats) }))
+        .sort((a, b) => (b.stats.elo || 1000) - (a.stats.elo || 1000));
+
+    renderAdminUserRows();
+}
+
+function renderAdminUserRows() {
+    if (!isAdminUser()) return;
+    const q = (document.getElementById('admin-user-search')?.value || '').trim().toLowerCase();
+    const filtered = _adminUsersCache.filter(u =>
+        !q || u.displayName.toLowerCase().includes(q) || u.nameKey.includes(q)
+    );
+
+    const totalMatches = _adminUsersCache.reduce((sum, u) => sum + (u.stats.matchesPlayed || 0), 0);
+    const topUser = _adminUsersCache[0];
+    document.getElementById('admin-summary-badges').innerHTML = `
+        <span class="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-emerald-300">👥 ${_adminUsersCache.length} Players</span>
+        <span class="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-amber-300">👑 Top: ${topUser ? `${topUser.displayName} (${topUser.stats.elo})` : '—'}</span>
+        <span class="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-cyan-300">⚽ ${totalMatches} Matches</span>`;
+
+    const listEl = document.getElementById('admin-users-list');
+    if (!filtered.length) {
+        listEl.innerHTML = '<div class="text-center text-xs font-bold text-slate-500 py-8">No matching players found.</div>';
+        return;
+    }
+
+    listEl.innerHTML = filtered.map(u => {
+        const rank = getRankFromElo(u.stats.elo);
+        const w = u.stats.aiWins + u.stats.pvpWins;
+        const d = u.stats.aiDraws + u.stats.pvpDraws;
+        const l = u.stats.aiLosses + u.stats.pvpLosses;
+        const safeKey = u.nameKey.replace(/[^a-z0-9_]/g, '');
+        return `
+        <div class="p-3.5 rounded-2xl bg-slate-900/95 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="w-11 h-11 rounded-xl overflow-hidden border border-slate-700 bg-slate-950 shrink-0">${renderAvatarSVG(u.avatarId)}</div>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-black text-white uppercase truncate">${u.displayName}</span>
+                        ${safeKey === 'sotiris' ? '<span class="px-1.5 py-0.5 rounded bg-amber-400/20 border border-amber-400/40 text-[9px] font-black text-amber-300">ADMIN</span>' : ''}
+                        <span class="px-1.5 py-0.5 rounded border text-[9px] font-black ${rank.badge}">${rank.name}</span>
+                    </div>
+                    <div class="text-[11px] font-bold text-slate-400">ELO ${u.stats.elo} • ${w}W-${d}D-${l}L • Goals ${u.stats.goalsScored}/${u.stats.goalsConceded}</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <input id="admin-pin-input-${safeKey}" type="password" inputmode="numeric" maxlength="6" placeholder="New 6-digit PIN"
+                    oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6)"
+                    class="bg-slate-950 border border-slate-700 focus:border-amber-400 rounded-xl px-3 py-2 text-xs font-black tracking-widest text-amber-300 w-36 text-center focus:outline-none">
+                <button onclick="adminChangeUserPin('${safeKey}')" class="btn-arcade px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-[11px] font-black uppercase">
+                    🔑 Set PIN
+                </button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function adminChangeUserPin(targetKey) {
+    if (!isAdminUser()) return;
+    const inp = document.getElementById(`admin-pin-input-${targetKey}`);
+    const newPin = (inp ? inp.value : '').trim();
+    if (!/^\d{6}$/.test(newPin)) {
+        return showAdminToast('Enter a valid 6-digit numeric PIN before clicking Set PIN.', true);
+    }
+
+    const existing = await fetchAccountRecord(targetKey);
+    if (!existing) {
+        return showAdminToast(`Account "${targetKey}" not found.`, true);
+    }
+
+    const newSalt = generateCryptoSaltHex(16);
+    const { hash, algo } = await hashPinSecure(newPin, newSalt);
+    existing.salt = newSalt;
+    existing.pinHash = hash;
+    existing.hashAlgo = algo;
+    existing.updatedAt = Date.now();
+    await persistAccountRecord(targetKey, existing);
+
+    // If Sotiris changed his own PIN, update active session hash so he stays logged in
+    if (targetKey === PROFILE.nameKey) {
+        PROFILE.salt = newSalt;
+        PROFILE.pinHash = hash;
+        PROFILE.hashAlgo = algo;
+        try { localStorage.setItem(SESSION_KEY, JSON.stringify({ nameKey: PROFILE.nameKey, pinHash: PROFILE.pinHash })); } catch (e) {}
+    }
+
+    if (inp) inp.value = '';
+    showAdminToast(`✓ Successfully updated & re-hashed 6-digit PIN for ${existing.displayName}!`);
+    loadAdminUserList();
 }
 
 async function testFirebaseConnection() {
@@ -6235,15 +7471,6 @@ function renderOverheadHUDAndRadar() {
     const secs = Math.floor((MATCH.timeElapsed - mins) * 60);
     const formattedClock = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     document.getElementById('hud-clock').textContent = formattedClock;
-    const trClock = document.getElementById('hud-top-right-clock');
-    if (trClock) trClock.textContent = formattedClock;
-    const trHalf = document.getElementById('hud-top-right-half');
-    if (trHalf) {
-        if (MATCH.state === 'PENALTY_SHOOTOUT') trHalf.textContent = 'PEN';
-        else if (MATCH.half === 3) trHalf.textContent = 'ET1';
-        else if (MATCH.half === 4) trHalf.textContent = 'ET2';
-        else trHalf.textContent = `${MATCH.half}H`;
-    }
 
     if (controlledPlayer[0]) {
         const p1 = controlledPlayer[0];
@@ -6965,17 +8192,23 @@ function recordTournamentMatchCompletion() {
 
         if (TOURNAMENT.matchday < 3) {
             TOURNAMENT.matchday++;
+            recordTournamentProgressToProfile(TOURNAMENT.type, 1, false);
         } else {
             buildRoundOf16Bracket();
             TOURNAMENT.stage = 'R16';
             TOURNAMENT.activeTab = 'KNOCKOUT';
+            const inR16 = (TOURNAMENT.knockout.R16 || []).some(m => m.home === uIdx || m.away === uIdx);
+            recordTournamentProgressToProfile(TOURNAMENT.type, inR16 ? 2 : 1, false);
         }
     } else {
         const curStage = TOURNAMENT.stage;
         const roundMatches = TOURNAMENT.knockout[curStage] || [];
+        let userWonRound = false;
+        let userPlayedRound = false;
         roundMatches.forEach(m => {
             if (m.played) return;
             if (m.home === uIdx || m.away === uIdx) {
+                userPlayedRound = true;
                 const userIsHome = (m.home === uIdx);
                 m.homeGoals = userIsHome ? userGoals : oppGoals;
                 m.awayGoals = userIsHome ? oppGoals : userGoals;
@@ -6986,6 +8219,7 @@ function recordTournamentMatchCompletion() {
                 } else {
                     m.winner = (m.homeGoals > m.awayGoals) ? m.home : m.away;
                 }
+                userWonRound = (m.winner === uIdx);
                 m.played = true;
             } else {
                 const sim = simulateAIMatchScore(m.home, m.away, true);
@@ -7001,6 +8235,14 @@ function recordTournamentMatchCompletion() {
         const nextMap = { R16: 'QF', QF: 'SF', SF: 'FINAL', FINAL: 'COMPLETED' };
         advanceKnockoutStageIfComplete(curStage, nextMap[curStage]);
         TOURNAMENT.activeTab = 'KNOCKOUT';
+
+        if (userPlayedRound) {
+            const stageRankMap = { R16: 2, QF: 3, SF: 4, FINAL: 5 };
+            const achievedRank = (curStage === 'FINAL')
+                ? (userWonRound ? 6 : 5)
+                : (userWonRound ? (stageRankMap[curStage] + 1) : stageRankMap[curStage]);
+            recordTournamentProgressToProfile(TOURNAMENT.type, achievedRank, curStage === 'FINAL' && userWonRound);
+        }
     }
 }
 
@@ -7441,21 +8683,54 @@ function returnToTournamentHubAfterMatch() {
     recordTournamentMatchCompletion();
     document.getElementById('pause-modal').classList.add('hidden');
     document.getElementById('match-hud').classList.add('hidden');
-    document.getElementById('top-profile-bar').classList.remove('hidden');
     MATCH.state = 'MENU';
+    updateAuthUI();
     renderTournamentHubUI();
     document.getElementById('tournament-hub-screen').classList.remove('hidden');
+}
+
+function getReadableTeamScoreColor(primaryNum, secondaryNum) {
+    const r = (primaryNum >> 16) & 255;
+    const g = (primaryNum >> 8) & 255;
+    const b = primaryNum & 255;
+    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    if (lum >= 0.34) return toHexStr(primaryNum);
+    // Boost very dark kits (e.g., dark navy/black) while keeping their authentic team hue readable on dark slate
+    const br = Math.min(255, Math.round(r + (255 - r) * 0.42));
+    const bg = Math.min(255, Math.round(g + (255 - g) * 0.42));
+    const bb = Math.min(255, Math.round(b + (255 - b) * 0.42));
+    const boostedLum = (0.299 * br + 0.587 * bg + 0.114 * bb) / 255;
+    if (boostedLum >= 0.38) {
+        return '#' + [br, bg, bb].map(v => v.toString(16).padStart(2, '0')).join('');
+    }
+    return toHexStr(secondaryNum || 0xf8fafc);
 }
 
 function updateScorebugUI() {
     const t0 = TEAMS[selectedTeams[0]];
     const t1 = TEAMS[selectedTeams[1]];
-    document.getElementById('scorebug-home-flag').innerHTML = renderFlagSVG(t0, 24, 16);
+    const k0 = getEffectiveKitColors(0);
+    const k1 = getEffectiveKitColors(1);
+    const col0 = getReadableTeamScoreColor(k0.primary, k0.secondary);
+    const col1 = getReadableTeamScoreColor(k1.primary, k1.secondary);
+
+    document.getElementById('scorebug-home-flag').innerHTML = renderFlagSVG(t0, 32, 20);
     document.getElementById('scorebug-home-code').textContent = t0.code;
-    document.getElementById('scorebug-home-score').textContent = MATCH.score[0];
-    document.getElementById('scorebug-away-flag').innerHTML = renderFlagSVG(t1, 24, 16);
+    const hs = document.getElementById('scorebug-home-score');
+    hs.textContent = MATCH.score[0];
+    hs.style.color = col0;
+    hs.style.borderColor = col0;
+    const sw0 = document.getElementById('scorebug-home-swatch');
+    if (sw0) sw0.style.backgroundColor = col0;
+
+    document.getElementById('scorebug-away-flag').innerHTML = renderFlagSVG(t1, 32, 20);
     document.getElementById('scorebug-away-code').textContent = t1.code;
-    document.getElementById('scorebug-away-score').textContent = MATCH.score[1];
+    const as = document.getElementById('scorebug-away-score');
+    as.textContent = MATCH.score[1];
+    as.style.color = col1;
+    as.style.borderColor = col1;
+    const sw1 = document.getElementById('scorebug-away-swatch');
+    if (sw1) sw1.style.backgroundColor = col1;
 }
 
 function startKickOffMatch(mode) {
@@ -7463,6 +8738,7 @@ function startKickOffMatch(mode) {
     MATCH.half = 1;
     MATCH.timeElapsed = 0;
     MATCH.score = [0, 0];
+    MATCH.statsRecordedToProfile = false;
     PENALTY_STATE.active = false;
     PENALTY_STATE.winnerTeam = null;
     resetMatchStats();
@@ -7473,7 +8749,6 @@ function startKickOffMatch(mode) {
     document.getElementById('team-select-screen').classList.add('hidden');
     document.getElementById('prematch-settings-screen').classList.add('hidden');
     document.getElementById('tournament-hub-screen').classList.add('hidden');
-    document.getElementById('top-profile-bar').classList.add('hidden');
     document.getElementById('pause-modal').classList.add('hidden');
     document.getElementById('match-hud').classList.remove('hidden');
 
@@ -7486,6 +8761,7 @@ function startKickOffMatch(mode) {
     resetPositionsForKickoff(0);
     setCameraMode(SETTINGS.cameraMode || 'TELEVISION');
     MATCH.state = 'PLAYING';
+    updateAuthUI();
 }
 
 function populateMatchReportModal(titleText) {
@@ -7575,6 +8851,7 @@ function togglePauseMatch() {
 }
 
 function openFulltimeModal() {
+    recordMatchResultToProfile();
     const modal = document.getElementById('pause-modal');
     populateMatchReportModal('🏁 FULL TIME — MATCH STATS');
     document.getElementById('btn-resume-match').classList.add('hidden');
@@ -7604,7 +8881,7 @@ function quitToMainMenu() {
     document.getElementById('prematch-settings-screen').classList.add('hidden');
     document.getElementById('tournament-hub-screen').classList.add('hidden');
     document.getElementById('menu-screen').classList.remove('hidden');
-    document.getElementById('top-profile-bar').classList.remove('hidden');
+    updateAuthUI();
 }
 
 function openSettingsModal() {
@@ -7636,6 +8913,7 @@ updateMenuTeamUI();
 spawnMatchSquads();
 resetPositionsForKickoff(0);
 document.getElementById('event-banner').classList.add('hidden');
+restoreSavedProfileSession();
 
 let lastFrameTime = performance.now();
 function animate(now) {
