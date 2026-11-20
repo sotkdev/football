@@ -544,9 +544,9 @@
         </div>
     </div>
 
-    <!-- SETTINGS & CONTROLS MODAL -->
-    <div id="settings-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-        <div class="w-full max-w-lg rounded-3xl glass-panel p-6 border border-slate-700">
+    <!-- SETTINGS & CONTROLS MODAL (MAIN MENU ONLY) -->
+    <div id="settings-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+        <div class="w-full max-w-lg rounded-3xl glass-panel p-6 border border-slate-700 my-auto max-h-[92vh] overflow-y-auto">
             <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-800">
                 <h2 class="text-lg font-black text-white uppercase">⚙️ Match Settings & Controls</h2>
                 <button onclick="closeSettingsModal()" class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 font-black">✕</button>
@@ -569,6 +569,66 @@
                         <option value="RINGS">🎯 Concentric Center Rings</option>
                         <option value="LUSH_SOLID">🌿 Lush Emerald Lawn</option>
                     </select>
+                </div>
+                <!-- GOALPOST TYPE SELECTOR (MAIN MENU SETTINGS ONLY) -->
+                <div id="setting-goalpost-row" class="space-y-2 p-3 rounded-2xl bg-slate-900/80 border border-slate-800">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-slate-300">Goalpost &amp; Net Style</span>
+                        <span id="setting-goalpost-active-label" class="text-[10px] font-black uppercase text-emerald-400">Stanchion Box</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" id="goalpost-opt-STANCHION_BOX" onclick="updateGoalpostType('STANCHION_BOX')"
+                            class="goalpost-opt-btn p-2 rounded-xl bg-slate-950 border-2 border-emerald-400 ring-2 ring-emerald-400/30 flex flex-col items-center gap-1.5 transition hover:border-emerald-300">
+                            <svg viewBox="0 0 88 52" class="w-full h-11">
+                                <rect x="0" y="38" width="88" height="14" fill="#14532d" opacity="0.55" rx="3"/>
+                                <!-- Rear black stanchion poles -->
+                                <line x1="25" y1="6" x2="25" y2="41" stroke="#0f172a" stroke-width="2.5"/>
+                                <line x1="77" y1="9" x2="77" y2="44" stroke="#0f172a" stroke-width="2.5"/>
+                                <!-- Tension cords -->
+                                <line x1="25" y1="8" x2="21" y2="12" stroke="#cbd5e1" stroke-width="1"/>
+                                <line x1="77" y1="11" x2="71" y2="15" stroke="#cbd5e1" stroke-width="1"/>
+                                <!-- Deep box net fill -->
+                                <polygon points="10,12 21,12 21,40 10,40" fill="rgba(255,255,255,0.18)" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2 2"/>
+                                <polygon points="21,12 71,15 71,43 21,40" fill="rgba(255,255,255,0.16)" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2 2"/>
+                                <polygon points="10,12 60,15 71,15 21,12" fill="rgba(255,255,255,0.14)" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2 2"/>
+                                <polygon points="60,15 71,15 71,43 60,43" fill="rgba(255,255,255,0.22)" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2 2"/>
+                                <!-- White goal frame & base -->
+                                <polyline points="10,40 21,40 71,43 60,43" fill="none" stroke="#ffffff" stroke-width="1.6"/>
+                                <polyline points="10,40 10,12 60,15 60,43" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linejoin="round"/>
+                            </svg>
+                            <span class="text-[10px] font-black uppercase text-white leading-tight text-center">Stanchion Box</span>
+                        </button>
+                        <button type="button" id="goalpost-opt-TRIANGULAR_SLANT" onclick="updateGoalpostType('TRIANGULAR_SLANT')"
+                            class="goalpost-opt-btn p-2 rounded-xl bg-slate-950 border-2 border-slate-700 flex flex-col items-center gap-1.5 transition hover:border-slate-500">
+                            <svg viewBox="0 0 88 52" class="w-full h-11">
+                                <rect x="0" y="38" width="88" height="14" fill="#14532d" opacity="0.55" rx="3"/>
+                                <!-- Triangular slanted net -->
+                                <polygon points="10,12 24,40 10,40" fill="rgba(255,255,255,0.18)" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2 2"/>
+                                <polygon points="10,12 60,15 76,43 24,40" fill="rgba(255,255,255,0.18)" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2 2"/>
+                                <polygon points="60,15 76,43 60,43" fill="rgba(255,255,255,0.24)" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2 2"/>
+                                <!-- White base & front frame -->
+                                <polyline points="10,40 24,40 76,43 60,43" fill="none" stroke="#ffffff" stroke-width="1.6"/>
+                                <polyline points="10,40 10,12 60,15 60,43" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linejoin="round"/>
+                            </svg>
+                            <span class="text-[10px] font-black uppercase text-slate-300 leading-tight text-center">Slanted Triangle</span>
+                        </button>
+                        <button type="button" id="goalpost-opt-STANDARD_STADIUM" onclick="updateGoalpostType('STANDARD_STADIUM')"
+                            class="goalpost-opt-btn p-2 rounded-xl bg-slate-950 border-2 border-slate-700 flex flex-col items-center gap-1.5 transition hover:border-slate-500">
+                            <svg viewBox="0 0 88 52" class="w-full h-11">
+                                <rect x="0" y="38" width="88" height="14" fill="#14532d" opacity="0.55" rx="3"/>
+                                <!-- Standard stadium D-frame net (short top + angled rear struts) -->
+                                <polygon points="10,12 16,12 23,40 10,40" fill="rgba(255,255,255,0.18)" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2 2"/>
+                                <polygon points="16,12 66,15 74,43 23,40" fill="rgba(255,255,255,0.17)" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2 2"/>
+                                <polygon points="60,15 66,15 74,43 60,43" fill="rgba(255,255,255,0.24)" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2 2"/>
+                                <!-- Rigid white back-frame struts & ground bars -->
+                                <polyline points="10,12 16,12 23,40 10,40" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>
+                                <polyline points="60,15 66,15 74,43 60,43" fill="none" stroke="#cbd5e1" stroke-width="1.5"/>
+                                <line x1="23" y1="40" x2="74" y2="43" stroke="#ffffff" stroke-width="1.6"/>
+                                <polyline points="10,40 10,12 60,15 60,43" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linejoin="round"/>
+                            </svg>
+                            <span class="text-[10px] font-black uppercase text-slate-300 leading-tight text-center">Stadium Frame</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="flex items-center justify-between">
                     <span class="font-bold text-slate-300">Camera Angle</span>
@@ -670,37 +730,47 @@
             <div id="profile-logged-in-view" class="space-y-5">
                 <!-- Player Hero Card -->
                 <div class="p-4 md:p-5 rounded-2xl bg-slate-900/95 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div class="flex items-center gap-4">
-                        <div id="profile-hero-avatar" class="w-20 h-20 rounded-2xl bg-slate-950 border-2 border-emerald-400/70 overflow-hidden flex items-center justify-center shadow-xl shrink-0"></div>
-                        <div class="text-left space-y-1">
-                            <div class="flex flex-wrap items-center gap-2">
+                    <div class="flex flex-col sm:flex-row items-center gap-4">
+                        <div class="flex flex-col items-center shrink-0">
+                            <button type="button" onclick="openAvatarPickerModal()" title="Click to edit profile picture"
+                                class="group relative w-20 h-20 rounded-2xl bg-slate-950 border-2 border-emerald-400/70 hover:border-emerald-300 hover:ring-4 hover:ring-emerald-400/25 overflow-hidden flex items-center justify-center shadow-xl transition cursor-pointer">
+                                <div id="profile-hero-avatar" class="w-full h-full flex items-center justify-center"></div>
+                                <div class="absolute inset-0 bg-slate-950/55 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                                    <span class="text-xs font-black text-white uppercase tracking-wider">✏️ Edit</span>
+                                </div>
+                            </button>
+                            <button type="button" onclick="openAvatarPickerModal()" class="mt-1.5 text-[10px] font-bold text-slate-400 hover:text-emerald-300 transition underline decoration-slate-600 underline-offset-2">
+                                Click to edit profile picture
+                            </button>
+                            <span id="profile-avatar-saved-msg" class="text-[10px] font-black text-emerald-300 hidden mt-0.5">✓ Saved!</span>
+                        </div>
+                        <div class="text-center sm:text-left space-y-1.5">
+                            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                                 <h3 id="profile-hero-name" class="text-2xl font-black text-white uppercase tracking-wide">PLAYER</h3>
                                 <span id="profile-hero-rank" class="px-2.5 py-0.5 rounded-lg bg-amber-400/20 border border-amber-400/40 text-xs font-black text-amber-300 uppercase">BRONZE II</span>
                             </div>
                             <div id="profile-hero-since" class="text-[11px] font-bold text-slate-400">Member since —</div>
-                            <div class="flex items-center gap-2 pt-1">
-                                <span class="text-xs font-black text-emerald-400" id="profile-hero-elo">1000 ELO</span>
+                            <!-- Prominent Human (PvP) ELO + Progress Bar -->
+                            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-0.5">
+                                <span class="text-sm font-black text-cyan-300" id="profile-hero-elo">🌐 1000 HUMAN ELO</span>
                                 <div class="w-32 h-2 rounded-full bg-slate-800 overflow-hidden">
-                                    <div id="profile-elo-progress" class="h-full bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full" style="width:25%"></div>
+                                    <div id="profile-elo-progress" class="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 rounded-full" style="width:25%"></div>
                                 </div>
                                 <span id="profile-next-rank-label" class="text-[10px] font-bold text-slate-400">Next: 1050</span>
                             </div>
+                            <!-- Secondary AI ELO pill -->
+                            <div class="flex items-center justify-center sm:justify-start gap-2">
+                                <span id="profile-hero-ai-elo" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-slate-950 border border-slate-700 text-[11px] font-black text-emerald-300">
+                                    ⚡ AI ELO: 1000 • Bronze II
+                                </span>
+                            </div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 shrink-0">
                         <button onclick="logoutCurrentProfile(); closeProfileModal();" class="btn-arcade px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-rose-950 text-rose-300 text-xs font-black uppercase border border-slate-700">
                             🚪 Logout
                         </button>
                     </div>
-                </div>
-
-                <!-- 12 Football Profile Pictures Picker -->
-                <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-black uppercase tracking-wider text-emerald-400">🖼️ Choose Football Profile Picture (12 Avatars)</span>
-                        <span id="profile-avatar-saved-msg" class="text-[11px] font-black text-emerald-300 hidden">✓ Saved!</span>
-                    </div>
-                    <div id="profile-avatar-grid" class="grid grid-cols-4 sm:grid-cols-6 gap-2.5"></div>
                 </div>
 
                 <!-- Headline Career Stat Tiles -->
@@ -715,6 +785,20 @@
                     <div id="profile-telemetry-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center"></div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- PROFILE PICTURE PICKER POPUP MODAL (12 FOOTBALL AVATARS) -->
+    <div id="avatar-picker-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+        <div class="w-full max-w-lg rounded-3xl glass-panel p-5 md:p-6 border border-emerald-400/40 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div>
+                    <div class="text-[10px] font-black uppercase tracking-widest text-emerald-400">CUSTOMIZE PROFILE</div>
+                    <h3 class="text-lg font-black text-white uppercase">🖼️ Choose Profile Picture</h3>
+                </div>
+                <button onclick="closeAvatarPickerModal()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-black">✕</button>
+            </div>
+            <div id="profile-avatar-grid" class="grid grid-cols-3 sm:grid-cols-4 gap-2.5"></div>
         </div>
     </div>
 
@@ -928,6 +1012,9 @@
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                <button id="btn-start-second-half" onclick="startSecondHalfFromHalftime()" class="hidden btn-arcade py-3 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950 font-black uppercase text-xs sm:col-span-2 shadow-lg">
+                    ▶ Start 2nd Half
+                </button>
                 <button id="btn-resume-match" onclick="togglePauseMatch()" class="btn-arcade py-3 rounded-xl bg-emerald-500 text-slate-950 font-black uppercase text-xs">
                     ▶ Resume Match
                 </button>
@@ -1209,8 +1296,12 @@ const TOURNAMENT_STAGE_LABELS = [
 
 function createDefaultStats() {
     return {
-        elo: 1000,
+        elo: 1000,       // Mirrored to Human (PvP) ELO for backwards compatibility
         peakElo: 1000,
+        pvpElo: 1000,    // Prominent ELO (vs Human players)
+        peakPvpElo: 1000,
+        aiElo: 1000,     // Secondary ELO (vs AI)
+        peakAiElo: 1000,
         matchesPlayed: 0,
         aiWins: 0,
         aiDraws: 0,
@@ -1325,10 +1416,18 @@ async function fetchAccountRecord(nameKey) {
 
 function sanitizeStatsObject(raw) {
     const def = createDefaultStats();
-    const s = Object.assign({}, def, raw || {});
+    const src = raw || {};
+    const s = Object.assign({}, def, src);
     const clampInt = (v, min, max) => Math.max(min, Math.min(max, Math.round(Number(v) || 0)));
-    s.elo = clampInt(s.elo, 100, 5000);
-    s.peakElo = Math.max(s.elo, clampInt(s.peakElo || s.elo, 100, 5000));
+    const hasExplicitPvp = (src.pvpElo !== undefined && src.pvpElo !== null);
+    const hasExplicitAi = (src.aiElo !== undefined && src.aiElo !== null);
+    s.pvpElo = clampInt(hasExplicitPvp ? src.pvpElo : (src.elo !== undefined ? src.elo : 1000), 100, 5000);
+    s.peakPvpElo = Math.max(s.pvpElo, clampInt(src.peakPvpElo !== undefined ? src.peakPvpElo : (src.peakElo || s.pvpElo), 100, 5000));
+    s.aiElo = clampInt(hasExplicitAi ? src.aiElo : 1000, 100, 5000);
+    s.peakAiElo = Math.max(s.aiElo, clampInt(src.peakAiElo !== undefined ? src.peakAiElo : s.aiElo, 100, 5000));
+    // Mirror legacy elo / peakElo to prominent Human (PvP) ELO
+    s.elo = s.pvpElo;
+    s.peakElo = s.peakPvpElo;
     s.matchesPlayed = clampInt(s.matchesPlayed, 0, 100000);
     s.aiWins = clampInt(s.aiWins, 0, 100000);
     s.aiDraws = clampInt(s.aiDraws, 0, 100000);
@@ -1431,7 +1530,7 @@ function updateAuthUI() {
     if (PROFILE.loggedIn) {
         if (outBox) outBox.classList.add('hidden');
         if (inBox) inBox.classList.remove('hidden');
-        const rank = getRankFromElo(PROFILE.stats.elo);
+        const humanRank = getRankFromElo(PROFILE.stats.pvpElo);
         const totalW = PROFILE.stats.aiWins + PROFILE.stats.pvpWins;
         const totalD = PROFILE.stats.aiDraws + PROFILE.stats.pvpDraws;
         const totalL = PROFILE.stats.aiLosses + PROFILE.stats.pvpLosses;
@@ -1443,11 +1542,11 @@ function updateAuthUI() {
         if (nameEl) nameEl.textContent = PROFILE.displayName;
         const rankEl = document.getElementById('menu-logged-rank-badge');
         if (rankEl) {
-            rankEl.textContent = rank.name;
-            rankEl.className = `px-2 py-0.5 rounded-md border text-[10px] font-black uppercase ${rank.badge}`;
+            rankEl.textContent = humanRank.name;
+            rankEl.className = `px-2 py-0.5 rounded-md border text-[10px] font-black uppercase ${humanRank.badge}`;
         }
         const subEl = document.getElementById('menu-logged-sub');
-        if (subEl) subEl.textContent = `ELO ${PROFILE.stats.elo} • ${totalW}W - ${totalD}D - ${totalL}L`;
+        if (subEl) subEl.textContent = `Human ELO ${PROFILE.stats.pvpElo} • AI ELO ${PROFILE.stats.aiElo} • ${totalW}W-${totalD}D-${totalL}L`;
     } else {
         if (outBox) outBox.classList.remove('hidden');
         if (inBox) inBox.classList.add('hidden');
@@ -1693,15 +1792,23 @@ function recordMatchResultToProfile() {
         s.currentStreak = 0;
     }
 
-    // Dynamic ELO calculation (vs AI scales with opponent team OVR; vs Player uses K=32)
+    // Dual ELO calculation: Human (PvP) ELO vs AI ELO tracked independently
     const oppTeam = TEAMS[selectedTeams[oppIdx]];
-    const oppExpectedElo = isPvp ? 1100 : (850 + ((oppTeam ? oppTeam.ovr : 80) - 70) * 14);
-    const expectedScore = 1 / (1 + Math.pow(10, (oppExpectedElo - s.elo) / 400));
     const actualScore = isWin ? 1.0 : (isDraw ? 0.5 : 0.0);
-    const kFactor = isPvp ? 32 : 24;
     const marginBonus = isWin ? Math.min(8, Math.max(0, (myGoals - oppGoals - 1) * 2)) : 0;
-    s.elo = Math.max(100, Math.round(s.elo + kFactor * (actualScore - expectedScore) + marginBonus));
-    if (s.elo > s.peakElo) s.peakElo = s.elo;
+    if (isPvp) {
+        const oppExpectedElo = 1100;
+        const expectedScore = 1 / (1 + Math.pow(10, (oppExpectedElo - s.pvpElo) / 400));
+        s.pvpElo = Math.max(100, Math.round(s.pvpElo + 32 * (actualScore - expectedScore) + marginBonus));
+        if (s.pvpElo > s.peakPvpElo) s.peakPvpElo = s.pvpElo;
+        s.elo = s.pvpElo;
+        s.peakElo = s.peakPvpElo;
+    } else {
+        const oppExpectedElo = 850 + ((oppTeam ? oppTeam.ovr : 80) - 70) * 14;
+        const expectedScore = 1 / (1 + Math.pow(10, (oppExpectedElo - s.aiElo) / 400));
+        s.aiElo = Math.max(100, Math.round(s.aiElo + 24 * (actualScore - expectedScore) + marginBonus));
+        if (s.aiElo > s.peakAiElo) s.peakAiElo = s.aiElo;
+    }
 
     // Career match telemetry
     s.shots += (MATCH.stats.shots[myIdx] || 0);
@@ -1733,24 +1840,52 @@ function recordTournamentProgressToProfile(type, stageRank, wonTitle = false) {
     saveCurrentProfileStats();
 }
 
-// --- PROFILE PAGE MODAL ---
+// --- PROFILE PAGE MODAL & AVATAR PICKER POPUP ---
 function openProfileModal() {
     renderProfileModal();
     document.getElementById('profile-modal').classList.remove('hidden');
 }
 
 function closeProfileModal() {
+    closeAvatarPickerModal();
     document.getElementById('profile-modal').classList.add('hidden');
+}
+
+function renderAvatarPickerGrid() {
+    const grid = document.getElementById('profile-avatar-grid');
+    if (!grid) return;
+    grid.innerHTML = FOOTBALL_AVATARS.map(av => {
+        const active = (av.id === PROFILE.avatarId);
+        return `<button type="button" onclick="selectProfileAvatar(${av.id})" title="${av.label}"
+            class="group relative p-2 rounded-xl bg-slate-950 border-2 ${active ? 'border-emerald-400 ring-2 ring-emerald-400/40 scale-105' : 'border-slate-800 hover:border-emerald-500/60'} transition flex flex-col items-center gap-1.5">
+            <div class="w-12 h-12 rounded-lg overflow-hidden">${av.svg}</div>
+            <span class="text-[10px] font-black uppercase ${active ? 'text-emerald-300' : 'text-slate-300'} truncate w-full text-center">${av.label}</span>
+        </button>`;
+    }).join('');
+}
+
+function openAvatarPickerModal() {
+    if (!PROFILE.loggedIn) return;
+    renderAvatarPickerGrid();
+    const modal = document.getElementById('avatar-picker-modal');
+    if (modal) modal.classList.remove('hidden');
+}
+
+function closeAvatarPickerModal() {
+    const modal = document.getElementById('avatar-picker-modal');
+    if (modal) modal.classList.add('hidden');
 }
 
 async function selectProfileAvatar(avatarId) {
     if (!PROFILE.loggedIn) return;
     PROFILE.avatarId = avatarId;
+    closeAvatarPickerModal();
     renderProfileModal();
+    updateAuthUI();
     const msg = document.getElementById('profile-avatar-saved-msg');
     if (msg) {
         msg.classList.remove('hidden');
-        setTimeout(() => msg.classList.add('hidden'), 1400);
+        setTimeout(() => msg.classList.add('hidden'), 1600);
     }
     await saveCurrentProfileStats();
 }
@@ -1767,26 +1902,22 @@ function renderProfileModal() {
     if (inView) inView.classList.remove('hidden');
 
     const s = PROFILE.stats;
-    const rank = getRankFromElo(s.elo);
+    const humanRank = getRankFromElo(s.pvpElo);
+    const aiRank = getRankFromElo(s.aiElo);
     document.getElementById('profile-hero-avatar').innerHTML = renderAvatarSVG(PROFILE.avatarId);
     document.getElementById('profile-hero-name').textContent = PROFILE.displayName;
     const rankEl = document.getElementById('profile-hero-rank');
-    rankEl.textContent = rank.name;
-    rankEl.className = `px-2.5 py-0.5 rounded-lg border text-xs font-black uppercase ${rank.badge}`;
-    document.getElementById('profile-hero-since').textContent = `Member since ${new Date(PROFILE.createdAt || Date.now()).toLocaleDateString()} • Peak ELO ${s.peakElo}`;
-    document.getElementById('profile-hero-elo').textContent = `${s.elo} ELO`;
-    document.getElementById('profile-elo-progress').style.width = `${rank.pct}%`;
-    document.getElementById('profile-next-rank-label').textContent = rank.name === 'Football Legend' ? 'MAX TIER' : `Next: ${rank.next}`;
+    rankEl.textContent = humanRank.name;
+    rankEl.className = `px-2.5 py-0.5 rounded-lg border text-xs font-black uppercase ${humanRank.badge}`;
+    document.getElementById('profile-hero-since').textContent = `Member since ${new Date(PROFILE.createdAt || Date.now()).toLocaleDateString()} • Peak Human ELO ${s.peakPvpElo}`;
+    document.getElementById('profile-hero-elo').textContent = `🌐 ${s.pvpElo} HUMAN ELO`;
+    document.getElementById('profile-elo-progress').style.width = `${humanRank.pct}%`;
+    document.getElementById('profile-next-rank-label').textContent = humanRank.name === 'Football Legend' ? 'MAX TIER' : `Next: ${humanRank.next}`;
+    const aiHeroEl = document.getElementById('profile-hero-ai-elo');
+    if (aiHeroEl) aiHeroEl.textContent = `⚡ AI ELO: ${s.aiElo} • ${aiRank.name} (Peak ${s.peakAiElo})`;
 
-    // 12 Football Avatars Picker
-    document.getElementById('profile-avatar-grid').innerHTML = FOOTBALL_AVATARS.map(av => {
-        const active = (av.id === PROFILE.avatarId);
-        return `<button onclick="selectProfileAvatar(${av.id})" title="${av.label}"
-            class="group relative p-1.5 rounded-xl bg-slate-950 border-2 ${active ? 'border-emerald-400 ring-2 ring-emerald-400/40 scale-105' : 'border-slate-800 hover:border-slate-600'} transition flex flex-col items-center gap-1">
-            <div class="w-11 h-11 rounded-lg overflow-hidden">${av.svg}</div>
-            <span class="text-[9px] font-black uppercase ${active ? 'text-emerald-300' : 'text-slate-400'} truncate w-full text-center">${av.label}</span>
-        </button>`;
-    }).join('');
+    // Keep popup grid synchronized if currently open
+    renderAvatarPickerGrid();
 
     const totalW = s.aiWins + s.pvpWins;
     const totalMatches = Math.max(1, s.matchesPlayed);
@@ -1795,25 +1926,25 @@ function renderProfileModal() {
     const gdStr = gd >= 0 ? `+${gd}` : `${gd}`;
 
     document.getElementById('profile-headline-stats').innerHTML = `
+        <div class="p-3.5 rounded-2xl bg-gradient-to-br from-cyan-950/90 to-slate-900 border-2 border-cyan-400/50 shadow-lg">
+            <div class="text-[10px] font-black uppercase text-cyan-300">🌐 HUMAN ELO (RANKED)</div>
+            <div class="text-2xl font-black text-white mt-0.5">${s.pvpElo}</div>
+            <div class="text-[11px] font-bold text-cyan-200/90">${humanRank.name} • Peak ${s.peakPvpElo}</div>
+        </div>
         <div class="p-3.5 rounded-2xl bg-slate-900/95 border border-emerald-500/25">
-            <div class="text-[10px] font-black uppercase text-emerald-400">RANK &amp; ELO</div>
-            <div class="text-xl font-black text-white mt-0.5">${s.elo}</div>
-            <div class="text-[11px] font-bold text-slate-400">${rank.name}</div>
+            <div class="text-[10px] font-black uppercase text-emerald-400">⚡ AI ELO</div>
+            <div class="text-xl font-black text-white mt-0.5">${s.aiElo}</div>
+            <div class="text-[11px] font-bold text-slate-400">${aiRank.name} • Peak ${s.peakAiElo}</div>
         </div>
         <div class="p-3.5 rounded-2xl bg-slate-900/95 border border-amber-500/25">
             <div class="text-[10px] font-black uppercase text-amber-400">BEST WIN</div>
             <div class="text-base font-black text-white mt-1 truncate">${s.bestWinText}</div>
             <div class="text-[11px] font-bold text-slate-400">${s.bestWinDiff >= 0 ? `+${s.bestWinDiff} Goal Margin` : 'Play a match!'}</div>
         </div>
-        <div class="p-3.5 rounded-2xl bg-slate-900/95 border border-cyan-500/25">
-            <div class="text-[10px] font-black uppercase text-cyan-400">GOALS FOR / AGAINST</div>
+        <div class="p-3.5 rounded-2xl bg-slate-900/95 border border-purple-500/25">
+            <div class="text-[10px] font-black uppercase text-purple-400">GOALS FOR / AGAINST</div>
             <div class="text-xl font-black text-white mt-0.5">${s.goalsScored} <span class="text-slate-500">/</span> ${s.goalsConceded}</div>
             <div class="text-[11px] font-bold ${gd >= 0 ? 'text-emerald-400' : 'text-rose-400'}">GD ${gdStr} • ${(s.goalsScored / totalMatches).toFixed(1)}/gm</div>
-        </div>
-        <div class="p-3.5 rounded-2xl bg-slate-900/95 border border-purple-500/25">
-            <div class="text-[10px] font-black uppercase text-purple-400">WIN RATE &amp; STREAK</div>
-            <div class="text-xl font-black text-white mt-0.5">${winPct}%</div>
-            <div class="text-[11px] font-bold text-slate-400">🔥 ${s.currentStreak} Streak (Best: ${s.bestStreak})</div>
         </div>`;
 
     const aiTotal = s.aiWins + s.aiDraws + s.aiLosses;
@@ -1822,26 +1953,26 @@ function renderProfileModal() {
     const pvpRate = pvpTotal ? Math.round((s.pvpWins / pvpTotal) * 100) : 0;
 
     document.getElementById('profile-mode-stats').innerHTML = `
-        <div class="p-4 rounded-2xl bg-slate-900/95 border border-slate-800 space-y-2">
+        <div class="p-4 rounded-2xl bg-slate-900/95 border border-cyan-500/35 space-y-2">
             <div class="flex justify-between items-center">
-                <span class="text-xs font-black uppercase text-emerald-400">⚡ Record vs AI</span>
-                <span class="text-xs font-black text-slate-300">${aiRate}% Win</span>
-            </div>
-            <div class="grid grid-cols-3 gap-2 text-center">
-                <div class="bg-slate-950 p-2 rounded-xl"><div class="text-lg font-black text-emerald-400">${s.aiWins}</div><div class="text-[10px] font-bold text-slate-400">WINS</div></div>
-                <div class="bg-slate-950 p-2 rounded-xl"><div class="text-lg font-black text-amber-300">${s.aiDraws}</div><div class="text-[10px] font-bold text-slate-400">DRAWS</div></div>
-                <div class="bg-slate-950 p-2 rounded-xl"><div class="text-lg font-black text-rose-400">${s.aiLosses}</div><div class="text-[10px] font-bold text-slate-400">LOSSES</div></div>
-            </div>
-        </div>
-        <div class="p-4 rounded-2xl bg-slate-900/95 border border-slate-800 space-y-2">
-            <div class="flex justify-between items-center">
-                <span class="text-xs font-black uppercase text-cyan-400">🌐 Record vs Players</span>
-                <span class="text-xs font-black text-slate-300">${pvpRate}% Win</span>
+                <span class="text-xs font-black uppercase text-cyan-300">🌐 Record vs Players</span>
+                <span class="text-xs font-black text-cyan-200">${s.pvpElo} ELO • ${pvpRate}% Win</span>
             </div>
             <div class="grid grid-cols-3 gap-2 text-center">
                 <div class="bg-slate-950 p-2 rounded-xl"><div class="text-lg font-black text-emerald-400">${s.pvpWins}</div><div class="text-[10px] font-bold text-slate-400">WINS</div></div>
                 <div class="bg-slate-950 p-2 rounded-xl"><div class="text-lg font-black text-amber-300">${s.pvpDraws}</div><div class="text-[10px] font-bold text-slate-400">DRAWS</div></div>
                 <div class="bg-slate-950 p-2 rounded-xl"><div class="text-lg font-black text-rose-400">${s.pvpLosses}</div><div class="text-[10px] font-bold text-slate-400">LOSSES</div></div>
+            </div>
+        </div>
+        <div class="p-4 rounded-2xl bg-slate-900/95 border border-slate-800 space-y-2">
+            <div class="flex justify-between items-center">
+                <span class="text-xs font-black uppercase text-emerald-400">⚡ Record vs AI</span>
+                <span class="text-xs font-black text-slate-300">${s.aiElo} ELO • ${aiRate}% Win</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center">
+                <div class="bg-slate-950 p-2 rounded-xl"><div class="text-lg font-black text-emerald-400">${s.aiWins}</div><div class="text-[10px] font-bold text-slate-400">WINS</div></div>
+                <div class="bg-slate-950 p-2 rounded-xl"><div class="text-lg font-black text-amber-300">${s.aiDraws}</div><div class="text-[10px] font-bold text-slate-400">DRAWS</div></div>
+                <div class="bg-slate-950 p-2 rounded-xl"><div class="text-lg font-black text-rose-400">${s.aiLosses}</div><div class="text-[10px] font-bold text-slate-400">LOSSES</div></div>
             </div>
         </div>
         <div class="p-4 rounded-2xl bg-slate-900/95 border border-amber-500/25 flex items-center justify-between">
@@ -1877,14 +2008,14 @@ function renderProfileModal() {
 
     const shotAcc = s.shots ? `${Math.round((s.shotsOnTarget / s.shots) * 100)}%` : '0%';
     document.getElementById('profile-telemetry-grid').innerHTML = `
-        <div class="bg-slate-950 p-2.5 rounded-xl"><div class="text-base font-black text-white">${s.matchesPlayed}</div><div class="text-[10px] font-bold text-slate-400 uppercase">Matches</div></div>
+        <div class="bg-slate-950 p-2.5 rounded-xl"><div class="text-base font-black text-white">${s.matchesPlayed} <span class="text-[11px] text-emerald-400">(${winPct}%)</span></div><div class="text-[10px] font-bold text-slate-400 uppercase">Matches (Win%)</div></div>
+        <div class="bg-slate-950 p-2.5 rounded-xl"><div class="text-base font-black text-amber-300">🔥 ${s.currentStreak} <span class="text-[11px] text-slate-400">(Best ${s.bestStreak})</span></div><div class="text-[10px] font-bold text-slate-400 uppercase">Win Streak</div></div>
         <div class="bg-slate-950 p-2.5 rounded-xl"><div class="text-base font-black text-emerald-400">${s.cleanSheets}</div><div class="text-[10px] font-bold text-slate-400 uppercase">Clean Sheets</div></div>
-        <div class="bg-slate-950 p-2.5 rounded-xl"><div class="text-base font-black text-amber-300">${s.penaltyWins}</div><div class="text-[10px] font-bold text-slate-400 uppercase">Penalty Wins</div></div>
         <div class="bg-slate-950 p-2.5 rounded-xl"><div class="text-base font-black text-cyan-300">${favHtml}</div><div class="text-[10px] font-bold text-slate-400 uppercase">Fav Nation</div></div>
         <div class="bg-slate-950 p-2.5 rounded-xl"><div class="text-base font-black text-white">${s.shots} <span class="text-[11px] text-emerald-400">(${shotAcc})</span></div><div class="text-[10px] font-bold text-slate-400 uppercase">Shots (On Tgt)</div></div>
         <div class="bg-slate-950 p-2.5 rounded-xl"><div class="text-base font-black text-white">${s.saves}</div><div class="text-[10px] font-bold text-slate-400 uppercase">GK Saves</div></div>
         <div class="bg-slate-950 p-2.5 rounded-xl"><div class="text-base font-black text-white">${s.tackles}</div><div class="text-[10px] font-bold text-slate-400 uppercase">Tackles Won</div></div>
-        <div class="bg-slate-950 p-2.5 rounded-xl"><div class="text-base font-black text-white">${s.passes}</div><div class="text-[10px] font-bold text-slate-400 uppercase">Passes</div></div>`;
+        <div class="bg-slate-950 p-2.5 rounded-xl"><div class="text-base font-black text-white">${s.passes} <span class="text-[11px] text-amber-300">(${s.penaltyWins}P)</span></div><div class="text-[10px] font-bold text-slate-400 uppercase">Passes (Pen W)</div></div>`;
 }
 
 // --- SOTIRIS ADMIN PANEL ---
@@ -1977,7 +2108,7 @@ async function loadAdminUserList() {
     _adminUsersCache = Object.entries(merged)
         .filter(([, u]) => u && u.displayName)
         .map(([k, u]) => ({ ...u, nameKey: u.nameKey || k, stats: sanitizeStatsObject(u.stats) }))
-        .sort((a, b) => (b.stats.elo || 1000) - (a.stats.elo || 1000));
+        .sort((a, b) => (b.stats.pvpElo || 1000) - (a.stats.pvpElo || 1000));
 
     renderAdminUserRows();
 }
@@ -1993,7 +2124,7 @@ function renderAdminUserRows() {
     const topUser = _adminUsersCache[0];
     document.getElementById('admin-summary-badges').innerHTML = `
         <span class="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-emerald-300">👥 ${_adminUsersCache.length} Players</span>
-        <span class="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-amber-300">👑 Top: ${topUser ? `${topUser.displayName} (${topUser.stats.elo})` : '—'}</span>
+        <span class="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-amber-300">👑 Top Human: ${topUser ? `${topUser.displayName} (${topUser.stats.pvpElo})` : '—'}</span>
         <span class="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-cyan-300">⚽ ${totalMatches} Matches</span>`;
 
     const listEl = document.getElementById('admin-users-list');
@@ -2003,7 +2134,7 @@ function renderAdminUserRows() {
     }
 
     listEl.innerHTML = filtered.map(u => {
-        const rank = getRankFromElo(u.stats.elo);
+        const rank = getRankFromElo(u.stats.pvpElo);
         const w = u.stats.aiWins + u.stats.pvpWins;
         const d = u.stats.aiDraws + u.stats.pvpDraws;
         const l = u.stats.aiLosses + u.stats.pvpLosses;
@@ -2018,7 +2149,7 @@ function renderAdminUserRows() {
                         ${safeKey === 'sotiris' ? '<span class="px-1.5 py-0.5 rounded bg-amber-400/20 border border-amber-400/40 text-[9px] font-black text-amber-300">ADMIN</span>' : ''}
                         <span class="px-1.5 py-0.5 rounded border text-[9px] font-black ${rank.badge}">${rank.name}</span>
                     </div>
-                    <div class="text-[11px] font-bold text-slate-400">ELO ${u.stats.elo} • ${w}W-${d}D-${l}L • Goals ${u.stats.goalsScored}/${u.stats.goalsConceded}</div>
+                    <div class="text-[11px] font-bold text-slate-400"><span class="text-cyan-300">Human ELO ${u.stats.pvpElo}</span> • AI ELO ${u.stats.aiElo} • ${w}W-${d}D-${l}L • Goals ${u.stats.goalsScored}/${u.stats.goalsConceded}</div>
                 </div>
             </div>
             <div class="flex items-center gap-2 shrink-0">
@@ -2952,14 +3083,58 @@ const GOAL_W = 10.6; // Z: -5.3 to +5.3
 const GOAL_H = 3.45;
 const GOAL_DEPTH = 3.6;
 
+const GOALPOST_TYPE_LABELS = {
+    STANCHION_BOX: 'Stanchion Box',
+    TRIANGULAR_SLANT: 'Slanted Triangle',
+    STANDARD_STADIUM: 'Stadium Frame'
+};
+
+function _loadSavedGoalpostType() {
+    try {
+        const saved = localStorage.getItem('fs_goalpost_type');
+        if (saved && GOALPOST_TYPE_LABELS[saved]) return saved;
+    } catch (e) {}
+    return 'STANCHION_BOX';
+}
+
 const SETTINGS = {
     halfMinutes: 3,
     pitchStyle: 'CLASSIC_STRIPES',
+    goalpostType: _loadSavedGoalpostType(),
     daytime: 'DAY',
     cameraMode: 'TELEVISION',
     touchEnabled: ('ontouchstart' in window) || navigator.maxTouchPoints > 0,
     tactics: [1, 1] // 0: Defensive, 1: Balanced, 2: Attacking
 };
+
+function syncGoalpostSettingUI() {
+    const active = SETTINGS.goalpostType || 'STANCHION_BOX';
+    const lbl = document.getElementById('setting-goalpost-active-label');
+    if (lbl) lbl.textContent = GOALPOST_TYPE_LABELS[active] || 'Stanchion Box';
+    Object.keys(GOALPOST_TYPE_LABELS).forEach(key => {
+        const btn = document.getElementById(`goalpost-opt-${key}`);
+        if (!btn) return;
+        const isSel = (key === active);
+        btn.className = isSel
+            ? 'goalpost-opt-btn p-2 rounded-xl bg-slate-950 border-2 border-emerald-400 ring-2 ring-emerald-400/30 flex flex-col items-center gap-1.5 transition hover:border-emerald-300'
+            : 'goalpost-opt-btn p-2 rounded-xl bg-slate-950 border-2 border-slate-700 flex flex-col items-center gap-1.5 transition hover:border-slate-500';
+        const span = btn.querySelector('span');
+        if (span) {
+            span.className = isSel
+                ? 'text-[10px] font-black uppercase text-white leading-tight text-center'
+                : 'text-[10px] font-black uppercase text-slate-300 leading-tight text-center';
+        }
+    });
+}
+
+function updateGoalpostType(type) {
+    if (!GOALPOST_TYPE_LABELS[type]) return;
+    SETTINGS.goalpostType = type;
+    try { localStorage.setItem('fs_goalpost_type', type); } catch (e) {}
+    if (typeof leftGoalNet !== 'undefined' && leftGoalNet) leftGoalNet.rebuild(type);
+    if (typeof rightGoalNet !== 'undefined' && rightGoalNet) rightGoalNet.rebuild(type);
+    syncGoalpostSettingUI();
+}
 
 function syncHalfDurationSetting(val) {
     SETTINGS.halfMinutes = parseInt(val) || 3;
@@ -3245,49 +3420,67 @@ class BouncingGoalNet {
         this.goalLineX = sideSign * (PITCH_W / 2);
         this.group = new THREE.Group();
         this.sheets = [];
-        this.buildGoalFrameAndLooseNet();
+        this.goalpostType = (typeof SETTINGS !== 'undefined' && SETTINGS.goalpostType) ? SETTINGS.goalpostType : 'STANCHION_BOX';
+        this.buildGoalFrameAndLooseNet(this.goalpostType);
         scene.add(this.group);
     }
 
-    buildGoalFrameAndLooseNet() {
+    rebuild(goalpostType) {
+        const nextType = GOALPOST_TYPE_LABELS[goalpostType] ? goalpostType : 'STANCHION_BOX';
+        this.goalpostType = nextType;
+        while (this.group.children.length > 0) {
+            const child = this.group.children[0];
+            this.group.remove(child);
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+                if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                else child.material.dispose();
+            }
+        }
+        this.sheets = [];
+        this.buildGoalFrameAndLooseNet(nextType);
+    }
+
+    getNetBackDepthAtY(y) {
+        const v = Math.max(0, Math.min(1, y / GOAL_H));
+        if (this.goalpostType === 'TRIANGULAR_SLANT') {
+            return 0.16 + (GOAL_DEPTH - 0.16) * (1 - v);
+        }
+        if (this.goalpostType === 'STANDARD_STADIUM') {
+            const topDepth = 1.05;
+            return topDepth + (GOAL_DEPTH - topDepth) * (1 - v);
+        }
+        // STANCHION_BOX (deep box net)
+        return GOAL_DEPTH - 0.22 * v;
+    }
+
+    _addCylinderBetween(pA, pB, radius, mat) {
+        const diff = new THREE.Vector3().subVectors(pB, pA);
+        const len = diff.length();
+        if (len < 0.001) return;
+        const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, len, 12), mat);
+        mesh.position.copy(pA).add(pB).multiplyScalar(0.5);
+        mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), diff.normalize());
+        this.group.add(mesh);
+    }
+
+    buildGoalFrameAndLooseNet(goalpostType = 'STANCHION_BOX') {
         const postMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        const stanchionMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.4, metalness: 0.3 });
+        const frameSupportMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.35, metalness: 0.25 });
+        const blackPoleMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.45, metalness: 0.35 });
         const ropeMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.96 });
 
         const halfZ = GOAL_W / 2;
         const x0 = this.goalLineX; // Exactly ±42.0m on the goal line
         const backX = x0 + this.side * GOAL_DEPTH; // Outward behind goal line (±45.6m)
 
-        // 1. Front Uprights & Crossbar (Strictly on Goal Line x0)
+        // 1. Common Front Uprights, Crossbar & Ground Base Frame (shared by all 3 goalpost styles)
         const postGeo = new THREE.CylinderGeometry(0.115, 0.115, GOAL_H, 18);
         [-halfZ, halfZ].forEach(zPos => {
             const p = new THREE.Mesh(postGeo, postMat);
             p.position.set(x0, GOAL_H / 2, zPos);
             p.castShadow = true;
             this.group.add(p);
-
-            // External Rear Support Stanchions behind goal corners
-            const poleX = backX + this.side * 0.55;
-            const poleZ = zPos * 1.04;
-            const poleH = GOAL_H + 0.35;
-            const stanchion = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, poleH, 12), stanchionMat);
-            stanchion.position.set(poleX, poleH / 2, poleZ);
-            this.group.add(stanchion);
-
-            // Red protective bottom padding on support pole
-            const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 1.1, 12), new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.6 }));
-            pad.position.set(poleX, 0.55, poleZ);
-            this.group.add(pad);
-
-            // Bright white guy-ropes connecting top of external pole to rear net corners & crossbar
-            const topNetCornerX = backX - this.side * 0.22;
-            const guyPts = [
-                new THREE.Vector3(poleX, poleH - 0.08, poleZ),
-                new THREE.Vector3(topNetCornerX, GOAL_H - 0.18, zPos),
-                new THREE.Vector3(x0, GOAL_H, zPos)
-            ];
-            const guyGeo = new THREE.BufferGeometry().setFromPoints(guyPts);
-            this.group.add(new THREE.Line(guyGeo, ropeMat));
 
             // Bottom White Ground Frame Side Bar (extending outward behind goal line)
             const sideBar = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, GOAL_DEPTH, 10), postMat);
@@ -3303,26 +3496,12 @@ class BouncingGoalNet {
         this.group.add(crossbar);
 
         // Bottom Rear Ground Frame Bar
-        const rearGroundBar = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, GOAL_W, 12), postMat);
+        const rearGroundBar = new THREE.Mesh(new THREE.CylinderGeometry(0.072, 0.072, GOAL_W, 12), postMat);
         rearGroundBar.rotation.x = Math.PI / 2;
         rearGroundBar.position.set(backX, 0.05, 0);
         this.group.add(rearGroundBar);
 
-        // Top Rear White Structural Net Support Bar & Side Roof Bars (makes the white net box silhouette pop)
-        const rearTopCord = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, GOAL_W, 12), postMat);
-        rearTopCord.rotation.x = Math.PI / 2;
-        rearTopCord.position.set(backX - this.side * 0.22, GOAL_H - 0.18, 0);
-        this.group.add(rearTopCord);
-
-        [-halfZ, halfZ].forEach(zPos => {
-            const topSideCord = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, GOAL_DEPTH - 0.2, 10), postMat);
-            topSideCord.rotation.z = Math.PI / 2;
-            topSideCord.position.set(x0 + this.side * ((GOAL_DEPTH - 0.22) / 2), GOAL_H - 0.09, zPos);
-            this.group.add(topSideCord);
-        });
-
-        // 2. Build 3D Deformable Loose Catenary Net Sheets using unlit pure bright white MeshBasicMaterial
-        // (depthWrite: false prevents dark background bleed-through between overlapping net panels)
+        // 2. Shared Bright White Woven Net Materials
         const netMatBack = new THREE.MeshBasicMaterial({
             color: 0xffffff,
             map: createWovenNetTexture(22, 9),
@@ -3339,7 +3518,139 @@ class BouncingGoalNet {
             transparent: true, opacity: 1.0, side: THREE.DoubleSide, depthWrite: false
         });
 
-        // BACK SHEET: strictly behind the goal line
+        if (goalpostType === 'TRIANGULAR_SLANT') {
+            // === STYLE 2 (MIDDLE IN PHOTO): CLASSIC SLANTED TRIANGULAR NET ===
+            // Clean slanted diagonal back net descending directly from crossbar to rear ground bar,
+            // with triangular side nets and zero upper back-bars or stanchions.
+            this.createLooseSheet(24, 14, (u, v) => {
+                const z = (u - 0.5) * GOAL_W;
+                const y = Math.max(0.04, v * GOAL_H);
+                const sagBell = Math.sin(u * Math.PI) * Math.sin(v * Math.PI);
+                const slopeDepth = GOAL_DEPTH * (1 - v);
+                const x = x0 + this.side * Math.max(0.04, slopeDepth - sagBell * 0.22);
+                const sagY = Math.max(0.04, y - sagBell * 0.16);
+                return { x, y: sagY, z, pinned: (v === 0 || v === 1) };
+            }, netMatBack);
+
+            // Left & Right Triangular Side Sheets
+            [-1, 1].forEach(zSign => {
+                this.createLooseSheet(12, 12, (u, v) => {
+                    const maxDepthAtV = GOAL_DEPTH * (1 - v);
+                    const x = x0 + this.side * (u * maxDepthAtV);
+                    const y = Math.max(0.04, v * GOAL_H);
+                    const sagBell = Math.sin(u * Math.PI) * Math.sin(v * Math.PI);
+                    const z = zSign * halfZ - zSign * sagBell * 0.18 * (1 - v * 0.75);
+                    const pinned = (u === 0 || v === 0 || v === 1 || u === 1);
+                    return { x, y, z, pinned };
+                }, netMatSide);
+            });
+            return;
+        }
+
+        if (goalpostType === 'STANDARD_STADIUM') {
+            // === STYLE 3 (RIGHT IN PHOTO): STANDARD STADIUM D-FRAME ===
+            // Short horizontal white top back-support arms + angled rear side struts down to ground base
+            const topDepth = 1.05;
+            const topBackX = x0 + this.side * topDepth;
+
+            [-halfZ, halfZ].forEach(zPos => {
+                // Short top back arm from crossbar corner
+                const topArm = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.062, topDepth, 12), frameSupportMat);
+                topArm.rotation.z = Math.PI / 2;
+                topArm.position.set(x0 + this.side * (topDepth / 2), GOAL_H - 0.04, zPos);
+                this.group.add(topArm);
+
+                // Angled rear metal support strut from top-back arm down to rear ground corner
+                this._addCylinderBetween(
+                    new THREE.Vector3(topBackX, GOAL_H - 0.04, zPos),
+                    new THREE.Vector3(backX, 0.05, zPos),
+                    0.058,
+                    frameSupportMat
+                );
+            });
+
+            // Thin top-rear white bar tying top arms together
+            const topRearBar = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, GOAL_W, 12), frameSupportMat);
+            topRearBar.rotation.x = Math.PI / 2;
+            topRearBar.position.set(topBackX, GOAL_H - 0.04, 0);
+            this.group.add(topRearBar);
+
+            // Sloped Back Sheet (from topRearBar down to rearGroundBar)
+            this.createLooseSheet(24, 14, (u, v) => {
+                const z = (u - 0.5) * GOAL_W;
+                const y = Math.max(0.04, v * (GOAL_H - 0.04));
+                const sagBell = Math.sin(u * Math.PI) * Math.sin(v * Math.PI);
+                const slopeDepth = topDepth + (GOAL_DEPTH - topDepth) * (1 - v);
+                const x = x0 + this.side * Math.max(0.25, slopeDepth - sagBell * 0.28);
+                const sagY = Math.max(0.04, y - sagBell * 0.16);
+                return { x, y: sagY, z, pinned: (v === 0 || (v === 1 && (u === 0 || u === 1))) };
+            }, netMatBack);
+
+            // Short Roof Sheet (from crossbar to topRearBar)
+            const netMatShortRoof = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                map: createWovenNetTexture(4, 20),
+                transparent: true, opacity: 1.0, side: THREE.DoubleSide, depthWrite: false
+            });
+            this.createLooseSheet(8, 22, (u, v) => {
+                const z = (v - 0.5) * GOAL_W;
+                const x = x0 + this.side * (u * topDepth);
+                const sagBell = Math.sin(u * Math.PI) * Math.sin(v * Math.PI);
+                const y = GOAL_H - u * 0.04 - sagBell * 0.16;
+                const pinned = (u === 0) || (u === 1 && (v === 0 || v === 1));
+                return { x, y, z, pinned };
+            }, netMatShortRoof);
+
+            // Left & Right Trapezoidal Side Sheets
+            [-1, 1].forEach(zSign => {
+                this.createLooseSheet(12, 12, (u, v) => {
+                    const maxDepthAtV = topDepth + (GOAL_DEPTH - topDepth) * (1 - v);
+                    const x = x0 + this.side * (u * maxDepthAtV);
+                    const y = Math.max(0.04, v * (GOAL_H - 0.04 * u));
+                    const sagBell = Math.sin(u * Math.PI) * Math.sin(v * Math.PI);
+                    const z = zSign * halfZ - zSign * sagBell * 0.18;
+                    const pinned = (u === 0 || v === 0 || (v === 1 && u === 1) || (u === 1 && v === 0));
+                    return { x, y, z, pinned };
+                }, netMatSide);
+            });
+            return;
+        }
+
+        // === STYLE 1 (LEFT IN PHOTO — DEFAULT): STANCHION BOX NET ===
+        // Deep rectangular box net suspended by two tall black vertical rear stanchion poles & tension cords
+        [-halfZ, halfZ].forEach(zPos => {
+            const poleX = backX + this.side * 0.62;
+            const poleZ = zPos * 1.05;
+            const poleH = GOAL_H + 0.52;
+            const stanchion = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.058, poleH, 12), blackPoleMat);
+            stanchion.position.set(poleX, poleH / 2, poleZ);
+            stanchion.castShadow = true;
+            this.group.add(stanchion);
+
+            // Taut tension cord connecting top of external black pole to rear upper net corner & crossbar
+            const topNetCornerX = backX - this.side * 0.22;
+            const guyPts = [
+                new THREE.Vector3(poleX, poleH - 0.08, poleZ),
+                new THREE.Vector3(topNetCornerX, GOAL_H - 0.18, zPos),
+                new THREE.Vector3(x0, GOAL_H, zPos)
+            ];
+            const guyGeo = new THREE.BufferGeometry().setFromPoints(guyPts);
+            this.group.add(new THREE.Line(guyGeo, ropeMat));
+
+            // Top side white net cord
+            const topSideCord = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, GOAL_DEPTH - 0.2, 10), postMat);
+            topSideCord.rotation.z = Math.PI / 2;
+            topSideCord.position.set(x0 + this.side * ((GOAL_DEPTH - 0.22) / 2), GOAL_H - 0.09, zPos);
+            this.group.add(topSideCord);
+        });
+
+        // Top Rear White Tension Cord
+        const rearTopCord = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, GOAL_W, 12), postMat);
+        rearTopCord.rotation.x = Math.PI / 2;
+        rearTopCord.position.set(backX - this.side * 0.22, GOAL_H - 0.18, 0);
+        this.group.add(rearTopCord);
+
+        // BACK SHEET: deep vertical catenary back net
         this.createLooseSheet(24, 14, (u, v) => {
             const z = (u - 0.5) * GOAL_W;
             const y = v * GOAL_H;
@@ -5234,11 +5545,12 @@ function updateSimulation(dt) {
 
         MATCH.timeElapsed += dt * (45 / (SETTINGS.halfMinutes * 60));
         if (MATCH.half === 1 && MATCH.timeElapsed >= 45) {
-            MATCH.half = 2;
             MATCH.timeElapsed = 45;
-            document.getElementById('hud-half-label').textContent = '2ND HALF';
-            resetPositionsForKickoff(1);
-            showEventBanner("⏱️ SECOND HALF KICK OFF!", 2.5);
+            MATCH.state = 'HALFTIME';
+            CHARGE.active = false;
+            CHARGE.kicker = null;
+            openHalftimeModal();
+            return;
         } else if (MATCH.half === 2 && MATCH.timeElapsed >= 90) {
             if (isCurrentMatchKnockout() && MATCH.score[0] === MATCH.score[1]) {
                 MATCH.half = 3;
@@ -6560,9 +6872,11 @@ function updateBallPhysics(dt) {
                         showEventBanner(`⚽ GOAL! ${scorerName} (${goalMin}') — ${TEAMS[selectedTeams[scoringTeam]].name}!`, 1.75);
                     }
 
-                    // Let the ball fly at full speed until it reaches the catenary back net sheet (~2.55m+ behind goal line)
+                    // Let the ball fly at full speed until it reaches the back net surface for the active goalpost style
+                    const netBackDepth = activeNet.getNetBackDepthAtY ? activeNet.getNetBackDepthAtY(BALL.y) : GOAL_DEPTH;
                     const depthIntoGoal = Math.abs(BALL.x) - hw;
-                    if (depthIntoGoal > 2.55) {
+                    const netSlowDepth = Math.max(0.35, netBackDepth - 0.92);
+                    if (depthIntoGoal > netSlowDepth) {
                         const impVx = BALL.vx * 0.45;
                         const impVy = BALL.vy * 0.45;
                         const impVz = BALL.vz * 0.45;
@@ -6572,7 +6886,7 @@ function updateBallPhysics(dt) {
                         BALL.vz *= Math.pow(0.08, sdt);
                     }
 
-                    const maxNetDepthX = side * (hw + GOAL_DEPTH - 0.25);
+                    const maxNetDepthX = side * (hw + Math.max(0.38, netBackDepth - 0.22));
                     if ((side === 1 && BALL.x > maxNetDepthX) || (side === -1 && BALL.x < maxNetDepthX)) {
                         activeNet.applyBallImpact(BALL.x, BALL.y, BALL.z, BALL.vx * 1.15, BALL.vy * 1.15, BALL.vz * 1.15);
                         recordReplayImpact(side, BALL.x, BALL.y, BALL.z, BALL.vx * 1.15, BALL.vy * 1.15, BALL.vz * 1.15);
@@ -8840,6 +9154,7 @@ function togglePauseMatch() {
         MATCH.prevStateBeforePause = MATCH.state;
         MATCH.state = 'PAUSED';
         populateMatchReportModal('MATCH PAUSED');
+        document.getElementById('btn-start-second-half').classList.add('hidden');
         document.getElementById('btn-resume-match').classList.remove('hidden');
         document.getElementById('btn-tournament-continue').classList.add('hidden');
         document.getElementById('btn-rematch-match').classList.remove('hidden');
@@ -8850,10 +9165,34 @@ function togglePauseMatch() {
     }
 }
 
+function openHalftimeModal() {
+    const modal = document.getElementById('pause-modal');
+    populateMatchReportModal('⏱️ HALF TIME — MATCH STATS');
+    document.getElementById('pause-time-badge').textContent = "HT 45'";
+    document.getElementById('btn-start-second-half').classList.remove('hidden');
+    document.getElementById('btn-resume-match').classList.add('hidden');
+    document.getElementById('btn-tournament-continue').classList.add('hidden');
+    document.getElementById('btn-rematch-match').classList.add('hidden');
+    modal.classList.remove('hidden');
+}
+
+function startSecondHalfFromHalftime() {
+    if (MATCH.state !== 'HALFTIME') return;
+    document.getElementById('pause-modal').classList.add('hidden');
+    document.getElementById('btn-start-second-half').classList.add('hidden');
+    MATCH.half = 2;
+    MATCH.timeElapsed = 45;
+    MATCH.state = 'PLAYING';
+    document.getElementById('hud-half-label').textContent = '2ND HALF';
+    resetPositionsForKickoff(1);
+    showEventBanner("⏱️ SECOND HALF KICK OFF!", 2.5);
+}
+
 function openFulltimeModal() {
     recordMatchResultToProfile();
     const modal = document.getElementById('pause-modal');
     populateMatchReportModal('🏁 FULL TIME — MATCH STATS');
+    document.getElementById('btn-start-second-half').classList.add('hidden');
     document.getElementById('btn-resume-match').classList.add('hidden');
     const isTourney = (MATCH.mode === 'WORLDCUP' || MATCH.mode === 'EURO') && TOURNAMENT.active;
     const tourneyBtn = document.getElementById('btn-tournament-continue');
@@ -8885,6 +9224,9 @@ function quitToMainMenu() {
 }
 
 function openSettingsModal() {
+    const gpRow = document.getElementById('setting-goalpost-row');
+    if (gpRow) gpRow.classList.toggle('hidden', MATCH.state !== 'MENU');
+    syncGoalpostSettingUI();
     document.getElementById('settings-modal').classList.remove('hidden');
 }
 function closeSettingsModal() {
@@ -8910,6 +9252,7 @@ window.addEventListener('resize', () => {
 hudCanvas.width = window.innerWidth;
 hudCanvas.height = window.innerHeight;
 updateMenuTeamUI();
+syncGoalpostSettingUI();
 spawnMatchSquads();
 resetPositionsForKickoff(0);
 document.getElementById('event-banner').classList.add('hidden');
