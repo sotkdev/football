@@ -3276,6 +3276,7 @@ window.addEventListener('keydown', e => {
     const striker = getStrikingUserPlayer();
 
     if (striker) {
+        if (striker.isGK && striker.gkHoldingBall && (striker.diveTimer > 0 || striker.gkGetUpTimer > 0)) return;
         if (isShootKey && !CHARGE.active) {
             CHARGE.active = true;
             CHARGE.type = 'SHOOT';
@@ -3487,6 +3488,10 @@ function findBestPassTeammate(kicker, isThrough, aimAngle) {
 
 function executeKick(kicker, actionType, rawPower) {
     if (!kicker) return;
+    // Goalkeeper must finish landing and standing up before releasing a caught ball
+    if (kicker.isGK && kicker.gkHoldingBall && (kicker.diveTimer > 0 || kicker.gkGetUpTimer > 0)) {
+        return;
+    }
     // Allow kicking if kicker owns the ball OR is within 2.1m of a loose ball
     if (BALL.owner !== kicker) {
         if (!BALL.owner && Math.hypot(BALL.x - kicker.x, BALL.z - kicker.z) <= 2.15) {
@@ -3536,6 +3541,14 @@ function executeKick(kicker, actionType, rawPower) {
     if (wasThrowIn && actionType === 'SHOOT') {
         actionType = 'PASS';
     }
+    // When a Goalkeeper presses Shoot/Clear with ball in hands, launch a high upfield punt/drop-kick
+    if (wasGkHandRelease && actionType === 'SHOOT') {
+        actionType = 'CROSS';
+        if (kicker.teamIdx === 0 && inp.len <= 0.12) {
+            launchAngle = 0;
+            kicker.facing = 0;
+        }
+    }
 
     if (actionType === 'PASS' || actionType === 'THROUGH') {
         CHARGE.displayPower = 0;
@@ -3583,13 +3596,13 @@ function executeKick(kicker, actionType, rawPower) {
         if (kicker.teamIdx === 0 && BALL.passTarget && !BALL.passTarget.isGK) {
             controlledPlayer[0] = BALL.passTarget;
         }
-        const speed = 18.5 + pwr * 12.5;
+        const speed = (wasGkHandRelease ? 21.5 : 18.5) + pwr * 12.5;
         BALL.x = kicker.x + Math.cos(launchAngle) * 1.05;
         BALL.z = kicker.z + Math.sin(launchAngle) * 1.05;
-        BALL.y = 0.35;
+        BALL.y = wasGkHandRelease ? 0.95 : 0.35;
         BALL.vx = Math.cos(launchAngle) * speed;
         BALL.vz = Math.sin(launchAngle) * speed;
-        BALL.vy = 6.8 + pwr * 5.4;
+        BALL.vy = (wasGkHandRelease ? 7.8 : 6.8) + pwr * 5.4;
     } else if (actionType === 'SHOOT') {
         BALL.isShot = true;
         BALL.shotOnTargetCounted = false;
@@ -3641,6 +3654,11 @@ function executeKick(kicker, actionType, rawPower) {
             BALL.vy = 9.5 + (pwr - 0.85) * 14.0;
         }
     }
+
+    // After Home GK distributes the ball, always return user control to an outfield player
+    if (wasGkHandRelease && kicker.teamIdx === 0 && controlledPlayer[0] === kicker) {
+        switchControlledDefender(0);
+    }
 }
 
 function switchControlledDefender(teamIdx) {
@@ -3680,6 +3698,7 @@ function awardTacklePossession(tackler, dispossessedOpponent) {
 
 function triggerSlideTackle(p) {
     if (p.slideTimer > 0 || p.stumbleTimer > 0 || p.isGK || MATCH.setPieceRestriction) return;
+    if (BALL.owner && BALL.owner.isGK && BALL.owner.gkHoldingBall) return;
     const targetX = BALL.owner ? BALL.owner.x : BALL.x;
     const targetZ = BALL.owner ? BALL.owner.z : BALL.z;
     const d = Math.hypot(targetX - p.x, targetZ - p.z);
@@ -3699,6 +3718,7 @@ function checkSlideTackleSteal(p) {
     if (p.slideCheckedSteal) return;
     if (BALL.owner && BALL.owner.teamIdx !== p.teamIdx) {
         const carrier = BALL.owner;
+        if (carrier.isGK && carrier.gkHoldingBall) return;
         const dist = Math.hypot(carrier.x - p.x, carrier.z - p.z);
         // Must be close to the opponent (<= 1.75m) to connect the slide tackle
         if (dist <= 1.75) {
@@ -3726,6 +3746,7 @@ function checkSlideTackleSteal(p) {
 // Close-range, skill-dependent Standing Tackle (requires being within 1.55m of opponent)
 function attemptStandingTackle(p) {
     if (p.stumbleTimer > 0 || p.slideTimer > 0 || MATCH.setPieceRestriction) return;
+    if (BALL.owner && BALL.owner.isGK && BALL.owner.gkHoldingBall) return;
     p.kickAnimTimer = 0.28;
 
     const targetX = BALL.owner ? BALL.owner.x : BALL.x;
@@ -3741,6 +3762,7 @@ function attemptStandingTackle(p) {
 
     if (BALL.owner && BALL.owner.teamIdx !== p.teamIdx) {
         const carrier = BALL.owner;
+        if (carrier.isGK && carrier.gkHoldingBall) return;
         const newDist = Math.hypot(carrier.x - p.x, carrier.z - p.z);
         // Must be close to the opponent (<= 1.55m) to steal the ball
         if (newDist <= 1.55) {
@@ -4115,7 +4137,57 @@ function updateSimulation(dt) {
         const stamFactor = 0.72 + 0.28 * (p.stamina / 100);
         const baseSpeed = (6.8 + (p.data.pac - 70) * 0.08) * stamFactor;
 
-        if (isUser0) {
+        if (isUser0 && p.isGK) {
+            if (BALL.owner === p && p.gkHoldingBall) {
+                p.gkScoopTimer = Math.max(0, (p.gkScoopTimer || 0) - dt);
+                p.gkCatchBlend = Math.min(1, (p.gkCatchBlend || 0) + dt * 6.5);
+
+                if (p.diveTimer > 0) {
+                    // Finish dive landing & turf skid while cradling the caught ball
+                    const prevDive = p.diveTimer;
+                    p.diveTimer = Math.max(0, p.diveTimer - dt);
+                    const progress = 1 - (p.diveTimer / (p.diveDuration || 0.72));
+                    const skid = progress < 0.65 ? 0.55 : Math.max(0, 0.55 * (1 - (progress - 0.65) / 0.35));
+                    const goalX0 = -(PITCH_W / 2 - 1.1);
+                    p.vx = (goalX0 - p.x) * 1.4 * skid;
+                    p.vz = (p.diveDirZ || 0) * Math.min(4.0, (p.diveLateralSpeed || 6.5) * 0.42) * skid;
+                    if (prevDive > 0 && p.diveTimer === 0 && p.caughtDuringDive) {
+                        p.gkGetUpDuration = 0.86;
+                        p.gkGetUpTimer = p.gkGetUpDuration;
+                        p.caughtDuringDive = false;
+                    }
+                } else if (p.gkGetUpTimer > 0) {
+                    // Finish standing back up while holding the ball in both hands
+                    p.gkGetUpTimer = Math.max(0, p.gkGetUpTimer - dt);
+                    p.vx = 0; p.vz = 0;
+                } else {
+                    // Upright with ball in hand: user can walk inside his 18-yard penalty area & aim, with 6s limit!
+                    if (!p.holdTimer || p.holdTimer <= 0) p.holdTimer = GK_MAX_HOLD_SECONDS;
+                    p.holdTimer = Math.max(0, p.holdTimer - dt);
+
+                    if (inp.len > 0.06) {
+                        const gkWalkSpeed = baseSpeed * 0.66;
+                        p.vx = inp.x * gkWalkSpeed;
+                        p.vz = inp.z * gkWalkSpeed;
+                        p.facing = Math.atan2(p.vz, p.vx);
+                    } else {
+                        p.vx = 0; p.vz = 0;
+                    }
+
+                    // 6-second rule: automatically pass if the goalkeeper holds the ball for 6 seconds!
+                    if (p.holdTimer <= 0) {
+                        p.vx = 0; p.vz = 0;
+                        p.facing = 0;
+                        executeKick(p, 'PASS', 0.72);
+                        showEventBanner(`⏱️ 6-SECOND RULE — ${p.data.name} AUTO-PASSES!`, 1.8);
+                    }
+                }
+            } else {
+                // Keeper no longer holds the ball — hand control back to outfield & resume GK AI
+                switchControlledDefender(0);
+                updateGoalkeeperAI(p, dt);
+            }
+        } else if (isUser0) {
             const topSpeed = baseSpeed * (isSprinting ? 1.28 : 1.0);
             if (inp.len > 0.06) {
                 p.vx = inp.x * topSpeed;
@@ -4145,6 +4217,14 @@ function updateSimulation(dt) {
         p.x = Math.max(-PITCH_W / 2 - 1, Math.min(PITCH_W / 2 + 1, p.x + p.vx * dt));
         p.z = Math.max(-PITCH_H / 2 - 1, Math.min(PITCH_H / 2 + 1, p.z + p.vz * dt));
 
+        // Strictly keep goalkeepers inside their own 18-yard penalty area territory!
+        if (p.isGK) {
+            clampGoalkeeperToBox(p);
+        } else if (BALL.owner && BALL.owner.isGK && BALL.owner.gkHoldingBall && p.teamIdx !== BALL.owner.teamIdx) {
+            // Prevent any opponent player (AI or human) from approaching a goalkeeper holding the ball in hand!
+            keepOpponentAwayFromHoldingGK(p, BALL.owner, dt);
+        }
+
         // Loose Ball Pickup (Guarded by pickupCooldown, kickIgnoreTimer, stumbleTimer, and GK stand-up)
         if (!BALL.owner && BALL.pickupCooldown <= 0 && BALL.y < 1.55 && p.stumbleTimer <= 0 && (!p.isGK || (p.gkGetUpTimer <= 0.2 && p.diveTimer <= 0))) {
             const isIgnoredKicker = (p === BALL.lastKicker && BALL.kickIgnoreTimer > 0);
@@ -4162,7 +4242,9 @@ function updateSimulation(dt) {
                         p.gkCatchBlend = 1.0;
                         p.caughtDuringDive = false;
                         p.gkScoopTimer = BALL.y < 0.8 ? 0.30 : 0;
-                        p.holdTimer = 1.05;
+                        p.holdTimer = GK_MAX_HOLD_SECONDS;
+                        p.cpuReleaseAt = 3.6 + Math.random() * 0.9;
+                        if (p.teamIdx === 0) controlledPlayer[0] = p;
                     }
                     if (p.teamIdx === 0 && !p.isGK) controlledPlayer[0] = p;
                     if (p.teamIdx === 1 && !p.isGK) controlledPlayer[1] = p;
@@ -4246,6 +4328,96 @@ function setCameraMode(mode) {
     }
 }
 
+const GK_MAX_HOLD_SECONDS = 6.0;
+const GK_BOX_DEPTH = 13.5;   // Exact 18-yard box depth matching createPitchTexture
+const GK_BOX_HALF_Z = 15.5;  // Exact 18-yard box half-width matching createPitchTexture
+
+// Keep any goalkeeper strictly inside his own 18-yard penalty area territory
+function clampGoalkeeperToBox(gk) {
+    const hw = PITCH_W / 2;
+    const margin = 0.65;
+    if (gk.teamIdx === 0) {
+        const minX = -hw + margin;
+        const maxX = -hw + GK_BOX_DEPTH - margin;
+        if (gk.x < minX) { gk.x = minX; if (gk.vx < 0) gk.vx = 0; }
+        if (gk.x > maxX) { gk.x = maxX; if (gk.vx > 0) gk.vx = 0; }
+    } else {
+        const minX = hw - GK_BOX_DEPTH + margin;
+        const maxX = hw - margin;
+        if (gk.x < minX) { gk.x = minX; if (gk.vx < 0) gk.vx = 0; }
+        if (gk.x > maxX) { gk.x = maxX; if (gk.vx > 0) gk.vx = 0; }
+    }
+    const maxZ = GK_BOX_HALF_Z - margin;
+    if (gk.z < -maxZ) { gk.z = -maxZ; if (gk.vz < 0) gk.vz = 0; }
+    if (gk.z > maxZ) { gk.z = maxZ; if (gk.vz > 0) gk.vz = 0; }
+}
+
+// Prevent opponent players (both AI and human) from approaching or crowding a goalkeeper holding the ball in hand
+function keepOpponentAwayFromHoldingGK(op, gk, dt) {
+    const hw = PITCH_W / 2;
+    const gkSideSign = (gk.teamIdx === 0) ? 1 : -1; // Direction pointing OUT of GK's box toward midfield
+    const boxOuterX = (gk.teamIdx === 0) ? (-hw + GK_BOX_DEPTH + 1.6) : (hw - GK_BOX_DEPTH - 1.6);
+    const inGkBoxX = (gk.teamIdx === 0) ? (op.x < boxOuterX) : (op.x > boxOuterX);
+    const inGkBoxZ = Math.abs(op.z) < (GK_BOX_HALF_Z + 1.2);
+
+    // 1. Guide/block opponent out of the goalkeeper's penalty box territory
+    if (inGkBoxX && inGkBoxZ) {
+        const moveOut = gkSideSign * 9.5 * dt;
+        op.x += moveOut;
+        if ((gk.teamIdx === 0 && op.x > boxOuterX) || (gk.teamIdx === 1 && op.x < boxOuterX)) {
+            op.x = boxOuterX;
+        }
+        if ((gk.teamIdx === 0 && op.vx < 0) || (gk.teamIdx === 1 && op.vx > 0)) {
+            op.vx = 0;
+        }
+    }
+
+    // 2. Enforce a minimum non-approach buffer radius around the goalkeeper holding the ball
+    const dx = op.x - gk.x;
+    const dz = op.z - gk.z;
+    const dist = Math.hypot(dx, dz) || 0.001;
+    const minBuffer = 7.8;
+    if (dist < minBuffer) {
+        const nx = dx / dist;
+        const nz = dz / dist;
+        // Never allow velocity directed toward the goalkeeper
+        const inward = op.vx * (-nx) + op.vz * (-nz);
+        if (inward > 0) {
+            op.vx += nx * inward;
+            op.vz += nz * inward;
+        }
+        const pushStep = Math.min(minBuffer - dist, 9.0 * dt);
+        op.x += nx * pushStep;
+        op.z += nz * pushStep;
+        // Hard minimum distance floor so nobody can ever crowd or clip the goalkeeper
+        const newDist = Math.hypot(op.x - gk.x, op.z - gk.z) || 0.001;
+        if (newDist < 5.0) {
+            op.x = gk.x + (op.x - gk.x) / newDist * 5.0;
+            op.z = gk.z + (op.z - gk.z) / newDist * 5.0;
+        }
+        op.x = Math.max(-hw + 1.0, Math.min(hw - 1.0, op.x));
+        op.z = Math.max(-PITCH_H / 2 + 1.0, Math.min(PITCH_H / 2 - 1.0, op.z));
+    }
+}
+
+function startGkBallHold(gk, caughtDuringDive, scoopDur = 0) {
+    BALL.owner = gk;
+    BALL.isShot = false;
+    BALL.passTarget = null;
+    BALL.passAssistTimer = 0;
+    BALL.lastTouchTeam = gk.teamIdx;
+    BALL.vx = 0; BALL.vz = 0; BALL.vy = 0;
+    gk.gkHoldingBall = true;
+    gk.caughtDuringDive = !!caughtDuringDive;
+    gk.gkCatchBlend = caughtDuringDive ? 0.08 : 1.0;
+    gk.gkScoopTimer = scoopDur;
+    gk.holdTimer = GK_MAX_HOLD_SECONDS;
+    gk.cpuReleaseAt = 3.5 + Math.random() * 0.9; // CPU distributes naturally within the 6s limit
+    if (gk.teamIdx === 0) {
+        controlledPlayer[0] = gk;
+    }
+}
+
 function updateGoalkeeperAI(gk, dt) {
     const sideSign = (gk.teamIdx === 0) ? 1 : -1;
     const goalX = -sideSign * (PITCH_W / 2 - 1.1);
@@ -4255,17 +4427,10 @@ function updateGoalkeeperAI(gk, dt) {
         gk.gkScoopTimer = Math.max(0, gk.gkScoopTimer - dt);
     }
 
-    // 0. Goalkeeper Holding Caught Ball in Hands (finishes dive landing -> stands up -> distributes!)
+    // 0. Goalkeeper Holding Caught Ball in Hands (finishes dive landing -> stands up -> distributes within 6s!)
     if (BALL.owner === gk) {
         gk.gkHoldingBall = true;
         gk.gkCatchBlend = Math.min(1, (gk.gkCatchBlend || 0) + dt * 6.5);
-
-        // Give keeper clear breathing room in the box while holding/recovering
-        players.forEach(op => {
-            if (op.teamIdx !== gk.teamIdx && Math.abs(op.x - goalX) < 14.5) {
-                op.x += sideSign * 9.5 * dt;
-            }
-        });
 
         // Sub-phase A: Caught during a dive — smoothly finish landing & turf skid while cradling ball!
         if (gk.diveTimer > 0) {
@@ -4291,24 +4456,27 @@ function updateGoalkeeperAI(gk, dt) {
             return;
         }
 
-        // Sub-phase C: Standing upright holding the ball in hands, stepping calmly forward before distributing
+        // Sub-phase C: Standing upright holding the ball in hands inside his penalty area (6-second limit!)
         gk.facing = baseFacing;
-        const stepOutX = goalX + sideSign * 3.8;
+        const stepOutX = goalX + sideSign * 4.5;
         const dxStep = stepOutX - gk.x;
-        if (Math.abs(dxStep) > 0.35 && (gk.holdTimer || 0) > 0.25) {
-            gk.vx = Math.sign(dxStep) * Math.min(2.1, Math.abs(dxStep) * 2.0);
+        if (Math.abs(dxStep) > 0.35 && (gk.holdTimer || 0) > 1.2) {
+            gk.vx = Math.sign(dxStep) * Math.min(2.2, Math.abs(dxStep) * 1.8);
         } else {
             gk.vx = 0;
         }
-        gk.vz = -gk.z * 0.6;
+        gk.vz = -gk.z * 0.55;
 
-        if (!gk.holdTimer || gk.holdTimer <= 0) gk.holdTimer = 0.95;
-        gk.holdTimer -= dt;
-        if (gk.holdTimer <= 0) {
+        if (!gk.holdTimer || gk.holdTimer <= 0) gk.holdTimer = GK_MAX_HOLD_SECONDS;
+        gk.holdTimer = Math.max(0, gk.holdTimer - dt);
+
+        // CPU keeper distributes smoothly after ~1.8-2.5s, and ALWAYS auto-passes if 6s expire
+        const releaseAt = (gk.teamIdx === 1) ? (gk.cpuReleaseAt || 3.8) : 0;
+        if (gk.holdTimer <= releaseAt || gk.holdTimer <= 0) {
             gk.holdTimer = 0;
             gk.vx = 0; gk.vz = 0;
             gk.facing = baseFacing;
-            executeKick(gk, 'PASS', 0.68);
+            executeKick(gk, 'PASS', 0.70);
         }
         return;
     }
@@ -4356,16 +4524,7 @@ function updateGoalkeeperAI(gk, dt) {
                 const gkDiv = gk.data.div || gk.data.def || 85;
                 // High-DIV keepers catch moderate shots cleanly in hands, land & stand up; rockets are parried wide
                 if (shotSpd < 30.5 && Math.random() < (0.48 + (gkDiv - 80) * 0.016)) {
-                    BALL.owner = gk;
-                    BALL.isShot = false;
-                    BALL.passTarget = null;
-                    BALL.passAssistTimer = 0;
-                    BALL.lastTouchTeam = gk.teamIdx;
-                    BALL.vx = 0; BALL.vz = 0; BALL.vy = 0;
-                    gk.gkHoldingBall = true;
-                    gk.caughtDuringDive = true;
-                    gk.gkCatchBlend = 0.08;
-                    gk.holdTimer = 0.90;
+                    startGkBallHold(gk, true, 0);
                     // Let the dive finish landing naturally onto the turf before standing up
                     gk.diveTimer = Math.max(0.20, Math.min(0.36, gk.diveTimer));
                     showEventBanner(`🧤 GREAT DIVING CATCH BY ${gk.data.name} (DIV ${gkDiv})!`, 2.2);
@@ -4400,17 +4559,7 @@ function updateGoalkeeperAI(gk, dt) {
             const shotSpd = Math.hypot(BALL.vx, BALL.vz);
             const gkDiv = gk.data.div || gk.data.def || 85;
             if (shotSpd < 33.0) {
-                BALL.owner = gk;
-                BALL.isShot = false;
-                BALL.passTarget = null;
-                BALL.passAssistTimer = 0;
-                BALL.lastTouchTeam = gk.teamIdx;
-                BALL.vx = 0; BALL.vz = 0; BALL.vy = 0;
-                gk.gkHoldingBall = true;
-                gk.gkCatchBlend = 1.0;
-                gk.caughtDuringDive = false;
-                gk.gkScoopTimer = BALL.y < 0.95 ? 0.34 : 0;
-                gk.holdTimer = 1.0;
+                startGkBallHold(gk, false, BALL.y < 0.95 ? 0.34 : 0);
                 showEventBanner(`🧤 CLEAN CATCH BY ${gk.data.name}!`, 2.0);
                 return;
             } else {
@@ -4442,24 +4591,14 @@ function updateGoalkeeperAI(gk, dt) {
                 CHARGE.displayPower = 0;
                 CHARGE.kicker = null;
             }
-            BALL.owner = gk;
-            BALL.isShot = false;
-            BALL.passTarget = null;
-            BALL.passAssistTimer = 0;
-            BALL.lastTouchTeam = gk.teamIdx;
-            BALL.vx = 0; BALL.vz = 0; BALL.vy = 0;
-            gk.gkHoldingBall = true;
-            gk.gkCatchBlend = 1.0;
-            gk.caughtDuringDive = false;
-            gk.gkScoopTimer = 0.36;
-            gk.holdTimer = 1.05;
+            startGkBallHold(gk, false, 0.36);
             MATCH.stats.saves[gk.teamIdx]++;
             showEventBanner(`🧤 ${gk.data.name} CATCHES THE BALL AT ${carrier.data.name}'S FEET!`, 2.0);
             return;
         }
 
-        // If the dribbler enters the penalty box in front of the keeper, GK steps out to narrow the angle & smother
-        if (distFromGoalX < 12.0 && Math.abs(BALL.z) < 11.5) {
+        // If the dribbler enters the penalty box in front of the keeper, GK steps out to narrow the angle & smother (inside box!)
+        if (distFromGoalX < (GK_BOX_DEPTH - 1.0) && Math.abs(BALL.z) < 11.5) {
             const rushRatio = distFromGoalX < 5.5 ? 0.85 : 0.38;
             const targetX = goalX + (BALL.x - goalX) * rushRatio;
             const targetZ = Math.max(-GOAL_W * 0.65, Math.min(GOAL_W * 0.65, BALL.z * 0.82));
@@ -4474,21 +4613,11 @@ function updateGoalkeeperAI(gk, dt) {
         }
     }
 
-    // 4. Goalkeeper collects loose non-shot balls inside his 6-yard / penalty area
-    if (!BALL.owner && !BALL.isShot && BALL.pickupCooldown <= 0 && Math.abs(BALL.x - goalX) < 8.5 && Math.abs(BALL.z) < 8.5) {
+    // 4. Goalkeeper collects loose non-shot balls inside his penalty area
+    if (!BALL.owner && !BALL.isShot && BALL.pickupCooldown <= 0 && Math.abs(BALL.x - goalX) < (GK_BOX_DEPTH - 1.5) && Math.abs(BALL.z) < (GK_BOX_HALF_Z - 1.5)) {
         const dLoose = Math.hypot(BALL.x - gk.x, BALL.z - gk.z);
         if (dLoose < 1.60 && BALL.y < 1.65) {
-            BALL.owner = gk;
-            BALL.isShot = false;
-            BALL.passTarget = null;
-            BALL.passAssistTimer = 0;
-            BALL.lastTouchTeam = gk.teamIdx;
-            BALL.vx = 0; BALL.vz = 0; BALL.vy = 0;
-            gk.gkHoldingBall = true;
-            gk.gkCatchBlend = 1.0;
-            gk.caughtDuringDive = false;
-            gk.gkScoopTimer = BALL.y < 0.85 ? 0.32 : 0;
-            gk.holdTimer = 1.0;
+            startGkBallHold(gk, false, BALL.y < 0.85 ? 0.32 : 0);
             return;
         }
         const dx = BALL.x - gk.x;
@@ -4565,8 +4694,8 @@ function updateGoalkeeperAI(gk, dt) {
 // DYNAMIC TEAM TACTICS ENGINE (Natural Attacking Support & Box Defense for BOTH Teams)
 // ============================================================================
 const TEAM_AI = [
-    { roles: new Map(), marks: new Map(), looseChaser: null, boxDanger: 0, attackProgress: 0, isAttacking: false, isDefending: false, oppDefLineX: 28 },
-    { roles: new Map(), marks: new Map(), looseChaser: null, boxDanger: 0, attackProgress: 0, isAttacking: false, isDefending: false, oppDefLineX: -28 }
+    { roles: new Map(), marks: new Map(), looseChaser: null, boxDanger: 0, attackProgress: 0, isAttacking: false, isDefending: false, oppGkHolding: false, oppDefLineX: 28 },
+    { roles: new Map(), marks: new Map(), looseChaser: null, boxDanger: 0, attackProgress: 0, isAttacking: false, isDefending: false, oppGkHolding: false, oppDefLineX: -28 }
 ];
 
 function computeTeamTacticsContext() {
@@ -4582,8 +4711,10 @@ function computeTeamTacticsContext() {
         const ownGoalX = -attackSign * (PITCH_W / 2);
         const isAttacking = (possTeam === t);
         const isDefending = (possTeam === 1 - t);
+        const oppGkHolding = !!(BALL.owner && BALL.owner.isGK && BALL.owner.gkHoldingBall && BALL.owner.teamIdx !== t);
         ctx.isAttacking = isAttacking;
         ctx.isDefending = isDefending;
+        ctx.oppGkHolding = oppGkHolding;
 
         const distBallToOwnGoal = Math.abs(BALL.x - ownGoalX);
         // Ramps 0 -> 1 as opponent approaches within 30m of our goal & reaches 1.0 around/inside the 18-yard big box
@@ -4603,7 +4734,7 @@ function computeTeamTacticsContext() {
         }
 
         // Dynamically switch CPU (Team 1) active presser to the best-positioned defender when Team 1 doesn't own the ball
-        if (t === 1 && !isAttacking && teamOutfield.length > 0) {
+        if (t === 1 && !isAttacking && !oppGkHolding && teamOutfield.length > 0) {
             let bestPress = null;
             let bestScore = Infinity;
             teamOutfield.forEach(p => {
@@ -4628,7 +4759,7 @@ function computeTeamTacticsContext() {
             if (closest) ctx.looseChaser = closest;
         }
 
-        if (isDefending) {
+        if (isDefending && !oppGkHolding) {
             // Rank available non-selected defenders by proximity & goal-side position relative to the attacking ball carrier
             const available = teamOutfield.filter(p => {
                 if (t === 0 && p === controlledPlayer[0]) return false;
@@ -4813,8 +4944,8 @@ function updateOutfieldAI(p, dt, baseSpeed) {
         return;
     }
 
-    // 3. Primary Presser on CPU (Team 1)
-    if (p.teamIdx === 1 && p === controlledPlayer[1] && (!BALL.owner || BALL.owner.teamIdx === 0)) {
+    // 3. Primary Presser on CPU (Team 1) — never approaches a goalkeeper holding the ball in hand!
+    if (p.teamIdx === 1 && p === controlledPlayer[1] && !ctx.oppGkHolding && (!BALL.owner || BALL.owner.teamIdx === 0)) {
         const leadX = BALL.owner ? (BALL.x + BALL.owner.vx * 0.14 - attackSign * 0.85) : BALL.x;
         const leadZ = BALL.owner ? (BALL.z + BALL.owner.vz * 0.14) : BALL.z;
         const dx = leadX - p.x;
@@ -4849,7 +4980,14 @@ function updateOutfieldAI(p, dt, baseSpeed) {
     let targetZ = p.homeZ + BALL.z * 0.22;
     let moveSpeedMult = 0.94;
 
-    if (ctx.isDefending) {
+    if (ctx.oppGkHolding) {
+        // Opposing goalkeeper holds the ball in hand: back off outside the box & hold shape without approaching him!
+        const safeMaxForwardX = oppGoalX - attackSign * (GK_BOX_DEPTH + 6.5);
+        const shapeX = p.homeX + attackSign * 6.0;
+        targetX = (attackSign === 1) ? Math.min(safeMaxForwardX, shapeX) : Math.max(safeMaxForwardX, shapeX);
+        targetZ = p.homeZ * 0.85 + BALL.z * 0.12;
+        moveSpeedMult = 0.95;
+    } else if (ctx.isDefending) {
         const danger = ctx.boxDanger; // 0 in opp half -> 1 approaching/inside our big box
         const carrier = BALL.owner;
         const attX = carrier ? carrier.x : BALL.x;
@@ -5746,6 +5884,41 @@ function renderOverheadHUDAndRadar() {
         hudCtx.stroke();
         hudCtx.restore();
     });
+
+    // Live 6-Second Goalkeeper Ball-in-Hand Countdown Badge
+    if (MATCH.state === 'PLAYING' && BALL.owner && BALL.owner.isGK && BALL.owner.gkHoldingBall && BALL.owner.diveTimer <= 0 && BALL.owner.gkGetUpTimer <= 0) {
+        const gk = BALL.owner;
+        const rem = Math.max(0, Math.min(GK_MAX_HOLD_SECONDS, gk.holdTimer || GK_MAX_HOLD_SECONDS));
+        const pct = rem / GK_MAX_HOLD_SECONDS;
+        const gc = projectToScreen(gk.x, 2.75, gk.z);
+        const yOff = (gk === controlledPlayer[0]) ? -44 : -20;
+        const color = rem <= 1.5 ? '#f43f5e' : (rem <= 3.0 ? '#fbbf24' : '#34d399');
+
+        hudCtx.save();
+        const pw = 66, ph = 20;
+        const px = gc.x - pw / 2;
+        const py = gc.y + yOff;
+        hudCtx.fillStyle = 'rgba(15, 23, 42, 0.90)';
+        hudCtx.strokeStyle = color;
+        hudCtx.lineWidth = 1.5;
+        hudCtx.beginPath();
+        if (hudCtx.roundRect) hudCtx.roundRect(px, py, pw, ph, 6);
+        else hudCtx.rect(px, py, pw, ph);
+        hudCtx.fill();
+        hudCtx.stroke();
+
+        hudCtx.font = '900 11px Inter, sans-serif';
+        hudCtx.textAlign = 'center';
+        hudCtx.fillStyle = color;
+        hudCtx.fillText(`🧤 ${rem.toFixed(1)}s`, gc.x, py + 13);
+
+        // Mini countdown bar along bottom of pill
+        hudCtx.fillStyle = 'rgba(255,255,255,0.12)';
+        hudCtx.fillRect(px + 4, py + ph - 3.5, pw - 8, 2);
+        hudCtx.fillStyle = color;
+        hudCtx.fillRect(px + 4, py + ph - 3.5, (pw - 8) * pct, 2);
+        hudCtx.restore();
+    }
 
     // Subtle Pass Receiver Target Ring when a pass is in flight
     if (!BALL.owner && BALL.passTarget && BALL.passAssistTimer > 0 && BALL.passTarget.teamIdx === 0) {
